@@ -1,0 +1,10 @@
+id = "bun-mcp-zed"
+name = "Bun Docs MCP"
+version = "0.0.1"
+schema_version = 1
+authors = ["Kaj Kowalski <dev@kajkowalski.nl>"]
+description = "MCP server integration for searching Bun documentation directly in Zed"
+repository = "https://github.com/kjanat/bun-mcp-zed"
+
+[context_servers.bun-docs]
+command = "node"

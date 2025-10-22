@@ -1,10 +1,10 @@
-id = "bun-mcp-zed"
+id = "bun-docs-mcp"
 name = "Bun Docs MCP"
+description = "MCP server integration for searching Bun documentation directly in Zed"
 version = "0.0.1"
 schema_version = 1
 authors = ["Kaj Kowalski <dev@kajkowalski.nl>"]
-description = "MCP server integration for searching Bun documentation directly in Zed"
-repository = "https://github.com/kjanat/bun-mcp-zed"
+repository = "https://github.com/kjanat/bun-docs-mcp-zed"
 
-[context_servers.bun-docs]
+[context_servers.bun-docs-mcp]
 command = "node"

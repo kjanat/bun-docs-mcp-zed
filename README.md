@@ -7,10 +7,10 @@ MCP server integration for searching [Bun documentation](https://bun.sh) directl
 This extension bridges Zed's stdio-based MCP client with the Bun HTTP MCP server:
 
 ```
-Zed Editor (stdio) ←→ proxy.js ←→ https://bun.com/docs/mcp (HTTP)
+Zed Editor (stdio) ←→ proxy.ts (Bun) ←→ https://bun.com/docs/mcp (HTTP)
 ```
 
-The `proxy.js` script translates between stdio and HTTP transports, allowing Zed to communicate with the Bun documentation server.
+The `proxy.ts` script translates between stdio and HTTP transports, allowing Zed to communicate with the Bun documentation server. Built with Bun's native `fetch()` API for optimal performance.
 
 ## Features
 
@@ -21,19 +21,20 @@ The `proxy.js` script translates between stdio and HTTP transports, allowing Zed
 
 ## Requirements
 
-- **Node.js**: Required to run the HTTP-to-stdio proxy
+- **Bun**: Required to run the HTTP-to-stdio proxy ([bun.sh](https://bun.sh))
 - **Rust**: Required for building the extension (via rustup)
 
 ## Installation
 
 ### Dev Installation (Local Development)
 
-1. Install [Node.js](https://nodejs.org/) (v16 or higher)
+1. Install [Bun](https://bun.sh) (v1.0 or higher)
 2. Install Rust via [rustup](https://www.rust-lang.org/tools/install)
 3. Clone this repository
-4. In Zed, open the Extensions page
-5. Click `Install Dev Extension` (or use `zed::InstallDevExtension` action)
-6. Select the `bun-docs-mcp` directory
+4. Build the extension: `cargo build --target wasm32-wasip1 --release`
+5. In Zed, open the Extensions page
+6. Click `Install Dev Extension` (or use `zed::InstallDevExtension` action)
+7. Select the `bun-docs-mcp-zed` directory
 
 ### Published Installation
 
@@ -73,9 +74,11 @@ After installation, the Bun documentation MCP server will be available in Zed. Y
 Search across the Bun knowledge base to find relevant information, code examples, API references, and guides.
 
 **Parameters:**
+
 - `query` (string, required): A query to search the content with
 
 **Returns:**
+
 - Contextual content with titles
 - Direct links to documentation pages
 - Relevant code examples
@@ -85,12 +88,12 @@ Search across the Bun knowledge base to find relevant information, code examples
 ### Project Structure
 
 ```
-bun-docs-mcp/
-├── extension.toml       # Extension metadata & context server registration
+bun-docs-mcp-zed/
+├── extension.toml      # Extension metadata & context server registration
 ├── Cargo.toml          # Rust build configuration
 ├── src/
 │   └── lib.rs          # Extension implementation (context_server_command)
-├── proxy.js            # HTTP-to-stdio bridge for MCP communication
+├── proxy.ts            # Bun-native HTTP-to-stdio bridge (SSE support)
 ├── LICENSE             # MIT license
 └── README.md           # This file
 ```
@@ -98,12 +101,14 @@ bun-docs-mcp/
 ### Building
 
 ```bash
+# Add WASM target (first time only)
+rustup target add wasm32-wasip1
+
 # Build the WASM extension
-cargo build --target wasm32-wasi --release
+cargo build --target wasm32-wasip1 --release
 
 # Test the proxy independently
-node proxy.js
-# (Send JSON-RPC messages via stdin)
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | bun proxy.ts
 
 # Test in Zed
 # Use "Install Dev Extension" from the Extensions page
@@ -112,11 +117,22 @@ node proxy.js
 ### How It Works
 
 1. **Extension Registration**: `extension.toml` registers the `bun-docs` context server
-2. **Command Provider**: `src/lib.rs` implements `context_server_command` to return the Node.js command
-3. **Protocol Bridge**: `proxy.js` translates between:
+2. **Command Provider**: `src/lib.rs` implements `context_server_command` to return the Bun command
+3. **Protocol Bridge**: `proxy.ts` (written in TypeScript, runs on Bun) translates between:
    - Zed's stdio JSON-RPC messages
    - HTTP POST requests to `https://bun.com/docs/mcp`
-4. **Response Handling**: HTTP responses are forwarded back to Zed via stdout
+   - Server-Sent Events (SSE) responses from the Bun server
+4. **Response Handling**: SSE responses are parsed and forwarded back to Zed via stdout
+
+### Why Bun?
+
+The proxy is built with Bun's native APIs for several reasons:
+
+- **Dogfooding**: The Bun documentation MCP uses Bun itself! 🐰
+- **Performance**: Bun's native `fetch()` is faster than Node.js http/https modules
+- **Simplicity**: Clean async/await code without callback-based APIs
+- **Native SSE**: Built-in support for parsing Server-Sent Events responses
+- **TypeScript**: First-class TypeScript support without transpilation
 
 ## License
 

@@ -1,5 +1,4 @@
 use zed_extension_api as zed;
-use std::fs;
 
 struct BunDocsMcpExtension;
 
@@ -17,7 +16,7 @@ impl zed::Extension for BunDocsMcpExtension {
         let extension_dir = std::env::current_dir()
             .map_err(|e| format!("Failed to get current directory: {}", e))?;
 
-        let proxy_script = extension_dir.join("proxy.js");
+        let proxy_script = extension_dir.join("proxy.ts");
 
         // Verify proxy script exists
         if !proxy_script.exists() {
@@ -25,13 +24,11 @@ impl zed::Extension for BunDocsMcpExtension {
         }
 
         match context_server_id.as_ref() {
-            "bun-docs" => {
-                Ok(zed::Command {
-                    command: "node".to_string(),
-                    args: vec![proxy_script.to_string_lossy().to_string()],
-                    env: vec![],
-                })
-            }
+            "bun-docs" => Ok(zed::Command {
+                command: "bun".to_string(),
+                args: vec![proxy_script.to_string_lossy().to_string()],
+                env: vec![],
+            }),
             id => Err(format!("Unknown context server: {}", id)),
         }
     }

@@ -1,6 +1,6 @@
 id = "bun-docs-mcp"
 name = "Bun Docs MCP"
-description = "MCP server integration for searching Bun documentation directly in Zed"
+description = "Bun documentation directly in Zed (https://bun.com/docs/mcp)"
 version = "0.0.1"
 schema_version = 1
 authors = ["Kaj Kowalski <dev@kajkowalski.nl>"]

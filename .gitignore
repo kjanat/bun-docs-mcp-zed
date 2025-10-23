@@ -275,3 +275,5 @@ zsdoc/data
 # End of https://www.toptal.com/developers/gitignore/api/rust,rust-analyzer,node,linux,windows,macos,zsh
 
 *local*
+extension.wasm
+proxy.js

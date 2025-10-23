@@ -40,7 +40,7 @@ cd bun-docs-mcp-zed
 
 # Build WASM
 
-cargo build --target wasm32-wasi --release
+cargo build --target wasm32-wasip2 --release
 
 # Test proxy
 

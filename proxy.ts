@@ -1,5 +1,3 @@
-#!/usr/bin/env bun
-
 /**
  * HTTP to stdio proxy for Bun Docs MCP Server
  *
@@ -9,9 +7,25 @@
  *
  * Written in TypeScript using Bun's native APIs for optimal performance.
  */
+import { fetch } from "bun";
 
-const MCP_SERVER_URL = "https://bun.com/docs/mcp";
+/** The url of the Bun Docs MCP HTTP server */
+const PROTOCOL = "https";
+const HOST = "bun.com";
+const PORT = 443;
+const PATH = "/docs/mcp";
 
+const MCP_SERVER_URL = `${PROTOCOL}://${HOST}:${PORT}${PATH}`;
+
+console.log(`${MCP_SERVER_URL}`);
+
+// Preconnect to MCP server for performance
+console.log(`Preconnecting to MCP server at ${MCP_SERVER_URL}...`);
+fetch.preconnect(`${PROTOCOL}://${HOST}:${PORT}`);
+
+/**
+ * JSON-RPC 2.0 Request types
+ */
 interface JsonRpcRequest {
   jsonrpc: "2.0";
   id: string | number | null;
@@ -19,6 +33,9 @@ interface JsonRpcRequest {
   params?: unknown;
 }
 
+/**
+ * JSON-RPC 2.0 Response type
+ */
 interface JsonRpcResponse {
   jsonrpc: "2.0";
   id: string | number | null;
@@ -30,17 +47,23 @@ interface JsonRpcResponse {
   };
 }
 
-// Log errors to stderr
+/**
+ * Log error message to stderr
+ */
 function logError(message: string, error?: unknown): void {
   console.error(`[BunDocsMCP] ${message}`, error || "");
 }
 
-// Send response to stdout
+/**
+ * Send JSON-RPC response to stdout
+ */
 function sendResponse(response: JsonRpcResponse): void {
   console.log(JSON.stringify(response));
 }
 
-// Parse SSE format response
+/**
+ * Parse SSE formatted text into JSON-RPC response
+ */
 function parseSSE(sseText: string): JsonRpcResponse | null {
   const lines = sseText.split("\n");
   for (const line of lines) {
@@ -48,24 +71,36 @@ function parseSSE(sseText: string): JsonRpcResponse | null {
       const jsonStr = line.slice(6); // Remove "data: " prefix
       try {
         return JSON.parse(jsonStr) as JsonRpcResponse;
-      } catch {
-        continue;
-      }
+      } catch {}
     }
   }
   return null;
 }
 
-// Forward request to HTTP MCP server using Bun's native fetch
+/**
+ * Forward JSON-RPC request to HTTP server and handle response
+ */
 async function forwardToHttpServer(request: JsonRpcRequest): Promise<void> {
   try {
     const response = await fetch(MCP_SERVER_URL, {
+      signal: AbortSignal.timeout(1000),
+
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json, text/event-stream",
       },
       body: JSON.stringify(request),
+
+      // Control automatic response decompression (default: true)
+      // Supports gzip, deflate, brotli (br), and zstd
+      decompress: true,
+
+      // Disable connection reuse for this request
+      keepalive: false,
+
+      // Debug logging level
+      verbose: true,
     });
 
     if (!response.ok) {

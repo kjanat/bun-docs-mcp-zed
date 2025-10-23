@@ -108,7 +108,21 @@ rustup target add wasm32-wasip1
 cargo build --target wasm32-wasip1 --release
 
 # Test the proxy independently
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}}}' | bun proxy.ts
+echo '{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "initialize",
+  "params": {
+    "protocolVersion": "2024-11-05",
+    "capabilities": {},
+    "clientInfo": {
+      "name": "test",
+      "version": "1.0"
+    }
+  }
+}' | jq -c \
+   | bun proxy.ts \
+   | jq .
 
 # Test in Zed
 # Use "Install Dev Extension" from the Extensions page

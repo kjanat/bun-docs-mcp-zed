@@ -148,8 +148,10 @@ echo '
   }
 }
 ' | jq -c \
-  | node proxy.js \
+  | bun --bun run proxy.ts \
   | jq .
+
+# Replace `bun --bun run proxy.ts` with `node proxy.js` to test the compiled version.
 ```
 
 #### Test in Zed

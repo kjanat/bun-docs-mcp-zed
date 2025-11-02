@@ -13,6 +13,41 @@ const MCP_SERVER_URL: string =
   (typeof process !== "undefined" && process.env?.MCP_SERVER_URL) ||
   "https://bun.com/docs/mcp";
 
+// Debug capture logging
+const DEBUG_CAPTURE = process.env.DEBUG_CAPTURE === "1";
+let logFileStream: any = null;
+
+if (DEBUG_CAPTURE) {
+  try {
+    // @ts-expect-error - fs import for logging
+    const fs = await import("fs");
+    logFileStream = fs.createWriteStream("/tmp/mcp-traffic.jsonl", {
+      flags: "a",
+    });
+  } catch (e) {
+    console.error("Failed to create log file:", e);
+  }
+}
+
+/**
+ * Log traffic for debugging (when DEBUG_CAPTURE=1)
+ */
+function logTraffic(direction: string, type: string, data: any): void {
+  if (!DEBUG_CAPTURE) return;
+
+  const entry = {
+    timestamp: new Date().toISOString(),
+    direction, // 'STDIN', 'HTTP_REQ', 'HTTP_RES', 'SSE_CHUNK', 'STDOUT'
+    type,
+    data: typeof data === "string" ? data : JSON.stringify(data),
+  };
+
+  if (logFileStream) {
+    logFileStream.write(JSON.stringify(entry) + "\n");
+  }
+  console.error(`[${direction}] ${type}:`, JSON.stringify(data, null, 2));
+}
+
 // Allow Bun-specific fetch options without upsetting TypeScript
 type ExtendedRequestInit = RequestInit & {
   decompress?: boolean;
@@ -54,6 +89,7 @@ function logError(message: string, error?: unknown): void {
  * Send JSON-RPC response to stdout
  */
 function sendResponse(response: JsonRpcResponse): void {
+  logTraffic("STDOUT", "JSON-RPC", response);
   console.log(JSON.stringify(response));
 }
 
@@ -93,7 +129,19 @@ async function forwardToHttpServer(request: JsonRpcRequest): Promise<void> {
       keepalive: false,
     };
 
+    logTraffic("HTTP_REQ", "POST", {
+      url: MCP_SERVER_URL,
+      headers: init.headers,
+      body: request,
+    });
+
     const response = await fetch(MCP_SERVER_URL, init);
+
+    logTraffic("HTTP_RES", "Headers", {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries()),
+    });
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -125,7 +173,9 @@ async function forwardToHttpServer(request: JsonRpcRequest): Promise<void> {
           break;
         }
 
-        buffer += decoder.decode(value, { stream: true });
+        const chunkStr = decoder.decode(value, { stream: true });
+        logTraffic("SSE_CHUNK", "Raw", chunkStr);
+        buffer += chunkStr;
 
         let idx = buffer.indexOf("\n");
         while (idx !== -1) {
@@ -189,6 +239,8 @@ async function handleRequest(line: string): Promise<void> {
   if (!line.trim()) {
     return;
   }
+
+  logTraffic("STDIN", "JSON-RPC", line);
 
   try {
     const request = JSON.parse(line) as JsonRpcRequest;

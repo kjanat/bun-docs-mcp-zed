@@ -49,6 +49,20 @@ repos:
       #   types: ["yaml"]
       #   files: ^\.github/workflows/
       #   entry: actionlint
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        args: [-x]
+#  - repo: local
+#    hooks:
+#    - id: bashate
+#      name: bashate
+#      description: This hook runs bashate for linting shell scripts
+#      entry: bashate
+#      language: python
+#      types: [shell]
+#      args: ['--ignore', 'E002,E003,E006']
   - repo: local
     hooks:
       - id: bun-build

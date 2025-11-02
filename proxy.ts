@@ -7,21 +7,17 @@
  *
  * Written in TypeScript using Bun's native APIs for optimal performance.
  */
-import { fetch } from "bun";
 
-/** The url of the Bun Docs MCP HTTP server */
-const PROTOCOL = "https";
-const HOST = "bun.com";
-const PORT = 443;
-const PATH = "/docs/mcp";
+// Default MCP server URL with env override
+const MCP_SERVER_URL: string =
+  (typeof process !== "undefined" && process.env?.MCP_SERVER_URL) ||
+  "https://bun.com/docs/mcp";
 
-const MCP_SERVER_URL = `${PROTOCOL}://${HOST}:${PORT}${PATH}`;
-
-console.log(`${MCP_SERVER_URL}`);
-
-// Preconnect to MCP server for performance
-console.log(`Preconnecting to MCP server at ${MCP_SERVER_URL}...`);
-fetch.preconnect(`${PROTOCOL}://${HOST}:${PORT}`);
+// Allow Bun-specific fetch options without upsetting TypeScript
+type ExtendedRequestInit = RequestInit & {
+  decompress?: boolean;
+  verbose?: boolean;
+};
 
 /**
  * JSON-RPC 2.0 Request types
@@ -78,30 +74,26 @@ function parseSSE(sseText: string): JsonRpcResponse | null {
 }
 
 /**
- * Forward JSON-RPC request to HTTP server and handle response
+ * Forward JSON-RPC request to the HTTP server and handle response
  */
 async function forwardToHttpServer(request: JsonRpcRequest): Promise<void> {
   try {
-    const response = await fetch(MCP_SERVER_URL, {
+    const init: ExtendedRequestInit = {
       signal: AbortSignal.timeout(1000),
-
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Accept: "application/json, text/event-stream",
       },
       body: JSON.stringify(request),
-
-      // Control automatic response decompression (default: true)
-      // Supports gzip, deflate, brotli (br), and zstd
+      // Bun-specific extras (ignored by other runtimes)
       decompress: true,
-
-      // Disable connection reuse for this request
-      keepalive: false,
-
-      // Debug logging level
       verbose: true,
-    });
+      // Avoid keepalive for simplicity across runtimes
+      keepalive: false,
+    };
+
+    const response = await fetch(MCP_SERVER_URL, init);
 
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -111,12 +103,68 @@ async function forwardToHttpServer(request: JsonRpcRequest): Promise<void> {
 
     // Handle SSE response
     if (contentType.includes("text/event-stream")) {
-      const text = await response.text();
-      const data = parseSSE(text);
-      if (data) {
-        sendResponse(data);
-      } else {
-        throw new Error("Failed to parse SSE response");
+      // Stream and parse SSE incrementally
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error("SSE response has no readable body");
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let eventData = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) {
+          // Flush any pending event
+          if (eventData) {
+            const data = parseSSE(`data: ${eventData}\n\n`);
+            if (data) sendResponse(data);
+            eventData = "";
+          }
+          break;
+        }
+
+        buffer += decoder.decode(value, { stream: true });
+
+        let idx: number;
+        while ((idx = buffer.indexOf("\n")) !== -1) {
+          let line = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 1);
+
+          // Trim trailing CR
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+
+          if (line === "") {
+            // Dispatch accumulated event
+            if (eventData) {
+              const json = eventData;
+              eventData = "";
+              try {
+                const parsed = JSON.parse(json) as JsonRpcResponse;
+                sendResponse(parsed);
+              } catch (e) {
+                logError("Failed to parse SSE event JSON:", e);
+              }
+            }
+            continue;
+          }
+
+          if (line.startsWith(":")) {
+            // Comment line, ignore
+            continue;
+          }
+
+          if (line.startsWith("data:")) {
+            // Append data line (spec allows multiple)
+            let payload = line.slice(5); // after 'data:'
+            if (payload.startsWith(" ")) payload = payload.slice(1);
+            eventData += payload;
+            continue;
+          }
+
+          // Other SSE fields (event, id, retry) are ignored for now
+        }
       }
     } else {
       // Handle regular JSON response
@@ -150,7 +198,7 @@ async function handleRequest(line: string): Promise<void> {
       throw new Error("Invalid JSON-RPC request");
     }
 
-    // Forward all requests to HTTP server
+    // Forward all requests to the HTTP server
     await forwardToHttpServer(request);
   } catch (error) {
     logError("Failed to parse request:", error);
@@ -169,30 +217,80 @@ async function handleRequest(line: string): Promise<void> {
 async function main(): Promise<void> {
   logError("Bun Docs MCP proxy started");
 
-  const stdin = Bun.stdin.stream();
-  const reader = stdin.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
+  // If running under Bun, use its streaming stdin API
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const isBun = typeof (globalThis as any).Bun !== "undefined";
 
-  try {
-    while (true) {
-      const { value, done } = await reader.read();
+  if (isBun) {
+    const stdin = (globalThis as any).Bun.stdin.stream();
+    const reader = stdin.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
 
-      if (done) {
-        break;
+    try {
+      while (true) {
+        const { value, done } = await reader.read();
+
+        if (done) {
+          // Flush any trailing data
+          if (buffer.length) {
+            await handleRequest(buffer);
+          }
+          break;
+        }
+
+        // Decode chunk and append to buffer
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete lines
+        let newlineIndex: number;
+        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+          const line = buffer.slice(0, newlineIndex);
+          buffer = buffer.slice(newlineIndex + 1);
+
+          await handleRequest(line);
+        }
       }
+    } catch (error) {
+      logError("Fatal error:", error);
+      process.exit(1);
+    }
+    return;
+  }
 
-      // Decode chunk and append to buffer
-      buffer += decoder.decode(value, { stream: true });
+  // Node.js fallback: process stdin in flowing mode
+  try {
+    let buffer = "";
 
-      // Process complete lines
-      let newlineIndex: number;
-      while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
-        const line = buffer.slice(0, newlineIndex);
-        buffer = buffer.slice(newlineIndex + 1);
+    // Ensure utf8 strings
+    process.stdin.setEncoding("utf8");
 
+    process.stdin.on("data", async (chunk: string) => {
+      buffer += chunk;
+
+      let idx: number;
+      while ((idx = buffer.indexOf("\n")) !== -1) {
+        const line = buffer.slice(0, idx);
+        buffer = buffer.slice(idx + 1);
         await handleRequest(line);
       }
+    });
+
+    process.stdin.on("end", async () => {
+      if (buffer.length) {
+        await handleRequest(buffer);
+        buffer = "";
+      }
+    });
+
+    process.stdin.on("error", (err) => {
+      logError("stdin error:", err);
+      process.exit(1);
+    });
+
+    // If input is already ended (e.g., no TTY), resume to receive 'end'
+    if (process.stdin.readable && (process.stdin as any).isPaused?.()) {
+      process.stdin.resume();
     }
   } catch (error) {
     logError("Fatal error:", error);
@@ -202,14 +300,14 @@ async function main(): Promise<void> {
 
 // Handle process termination
 process.on("SIGINT", () => {
-  logError("Received SIGINT, shutting down");
+  logError("\nReceived SIGINT, shutting down");
   process.exit(0);
 });
 
 process.on("SIGTERM", () => {
-  logError("Received SIGTERM, shutting down");
+  logError("\nReceived SIGTERM, shutting down");
   process.exit(0);
 });
 
 // Start the proxy
-main();
+void main();

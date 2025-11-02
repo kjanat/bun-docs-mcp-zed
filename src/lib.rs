@@ -3,45 +3,48 @@ use zed_extension_api as zed;
 struct BunDocsMcpExtension;
 
 impl zed::Extension for BunDocsMcpExtension {
-  fn context_server_command(
-    &mut self,
-    context_server_id: &ContextServerId,
-    project: &zed::Project,
-  ) -> Result<zed::Command> {
-    Ok(zed::Command {
-      command: get_path_to_context_server_executable()?,
-      args: get_args_for_context_server()?,
-      env: get_env_for_context_server()?,
-    })
+  fn new() -> Self {
+    Self
   }
-}
 
-impl zed::Extension for BunDocsMcpExtension {
   fn context_server_command(
     &mut self,
-    context_server_id: &ContextServerId,
-    project: &zed::Project,
-  ) -> Result<zed::Command> {
-    // Get the path to the proxy script
+    context_server_id: &zed::ContextServerId,
+    _project: &zed::Project,
+  ) -> Result<zed::Command, String> {
+    // Get the path to the proxy scripts in the extension directory
     let extension_dir =
-      std::env::current_dir().map_err(|e| format!("Failed to get current directory: {}", e))?;
+      std::env::current_dir().map_err(|e| format!("Failed to get the current directory: {}", e))?;
 
-    let proxy_script = extension_dir.join("proxy.ts");
-
-    // Verify proxy script exists
-    if !proxy_script.exists() {
-      return Err(format!("Proxy script not found at {:?}", proxy_script));
-    }
+    let proxy_ts = extension_dir.join("proxy.ts");
+    let proxy_js = extension_dir.join("proxy.js");
 
     match context_server_id.as_ref() {
-      "bun-docs-mcp" => Ok(zed::Command {
-        command: "bun".to_string(),
-        args: vec![proxy_script.to_string_lossy().to_string()],
-        env: vec![],
-      }),
+      "bun-docs-mcp" => {
+        // Prefer `Node` + built `JS` if available (doesn't require `Bun` at runtime)
+        if proxy_js.exists() {
+          Ok(zed::Command {
+            command: "node".to_string(),
+            args: vec![proxy_js.to_string_lossy().to_string()],
+            env: vec![],
+          })
+        } else if proxy_ts.exists() {
+          // Fallback to `Bun` + `TypeScript` source
+          Ok(zed::Command {
+            command: "bun".to_string(),
+            args: vec![proxy_ts.to_string_lossy().to_string()],
+            env: vec![],
+          })
+        } else {
+          Err(format!(
+            "Proxy wasn't found: expected {:?} or {:?}",
+            proxy_js, proxy_ts
+          ))
+        }
+      }
       id => Err(format!("Unknown context server: {}", id)),
     }
   }
 }
 
-// zed::register_extension!(BunDocsMcpExtension);
+zed::register_extension!(BunDocsMcpExtension);

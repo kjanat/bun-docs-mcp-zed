@@ -276,4 +276,6 @@ zsdoc/data
 
 *local*
 extension.wasm
-proxy.js
+
+.idea/
+

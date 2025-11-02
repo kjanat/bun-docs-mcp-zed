@@ -107,22 +107,40 @@ rustup target add wasm32-wasip1
 # Build the WASM extension
 cargo build --target wasm32-wasip1 --release
 
+# Build the proxy.js file
+bun build.ts
+# Or run this if you don't have bun installed:
+# npx -y bun build.ts
+
 # Test the proxy independently
-echo '{
+echo '
+{
   "jsonrpc": "2.0",
   "id": 1,
   "method": "initialize",
-  "params": {
+  "params": { 
     "protocolVersion": "2024-11-05",
     "capabilities": {},
     "clientInfo": {
-      "name": "test",
-      "version": "1.0"
+      "name": "cli-test",
+      "version": "0.1.0"
     }
   }
-}' | jq -c \
-   | bun proxy.ts \
-   | jq .
+}
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "SearchBun",
+    "arguments": {
+      "query": "Bun.serve example"
+    }
+  }
+}
+' | jq -c \
+  | node proxy.js \
+  | jq .
 
 # Test in Zed
 # Use "Install Dev Extension" from the Extensions page

@@ -61,7 +61,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | node proxy.j
    ```toml
    [bun-docs-mcp]
    submodule = "extensions/bun-docs-mcp"
-   version = "0.0.1"
+   version = "0.0.2"
    ```
 
 6. Run pnpm sort-extensions
@@ -108,7 +108,7 @@ basic information about the extension:
 ```toml
 id = "bun-docs-mcp"
 name = "Bun Docs MCP"
-version = "0.0.1"
+version = "0.0.2"
 schema_version = 1
 authors = ["Kaj Kowalski <dev@kajkowalski.nl>"]
 description = "MCP server integration for searching Bun documentation directly in Zed"
@@ -138,8 +138,8 @@ Procedural parts of extensions are written in Rust and compiled to WebAssembly. 
 ```toml
 [package]
 name = "bun-docs-mcp-zed"
-version = "0.0.1"
-edition = "2021"
+version = "0.0.2"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib"]
@@ -220,7 +220,7 @@ git add extensions/bun-docs-mcp
 ```toml
 [bun-docs-mcp]
 submodule = "extensions/bun-docs-mcp"
-version = "0.0.1"
+version = "0.0.2"
 ```
 
 > If your extension is in a subdirectory within the submodule you can use the `path` field to point to where the extension resides.

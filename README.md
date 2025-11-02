@@ -10,7 +10,8 @@ This extension bridges Zed's stdio-based MCP client with the Bun HTTP MCP server
 Zed Editor (stdio) ←→ proxy.ts (Bun) ←→ https://bun.com/docs/mcp (HTTP)
 ```
 
-The `proxy.ts` script translates between stdio and HTTP transports, allowing Zed to communicate with the Bun documentation server. Built with Bun's native `fetch()` API for optimal performance.
+The `proxy.ts` script translates between stdio and HTTP transports,
+allowing Zed to communicate with the Bun documentation server.
 
 ## Features
 
@@ -56,16 +57,16 @@ After installation, the Bun documentation MCP server will be available in Zed. Y
 ### Example Queries
 
 - "How do I use Bun's HTTP server?"
-- "Show me examples of Bun.serve"
+- "Show me examples of `Bun.serve`"
 - "What are Bun's testing features?"
-- "How to configure bun.lockb?"
+- "How to configure `bun.lockb`?"
 
 ## MCP Server Details
 
 - **Name**: Bun
 - **Version**: 1.0.0
 - **Transport**: HTTP
-- **Endpoint**: https://bun.com/docs/mcp
+- **Endpoint**: `https://bun.com/docs/mcp`
 
 ### Available Tools
 
@@ -149,7 +150,7 @@ echo '
 ### How It Works
 
 1. **Extension Registration**: `extension.toml` registers the `bun-docs` context server
-2. **Command Provider**: `src/lib.rs` implements `context_server_command` to return the Bun command
+2. **Command Provider**: [`src/lib.rs`](./src/lib.rs) implements `context_server_command` to return the Bun command
 3. **Protocol Bridge**: `proxy.ts` (written in TypeScript, runs on Bun) translates between:
    - Zed's stdio JSON-RPC messages
    - HTTP POST requests to `https://bun.com/docs/mcp`
@@ -168,7 +169,7 @@ The proxy is built with Bun's native APIs for several reasons:
 
 ## License
 
-MIT
+[MIT](./LICENSE)
 
 ## Links
 

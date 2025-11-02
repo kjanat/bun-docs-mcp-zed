@@ -127,13 +127,14 @@ async function forwardToHttpServer(request: JsonRpcRequest): Promise<void> {
 
         buffer += decoder.decode(value, { stream: true });
 
-        let idx: number;
-        while ((idx = buffer.indexOf("\n")) !== -1) {
+        let idx = buffer.indexOf("\n");
+        while (idx !== -1) {
           let line = buffer.slice(0, idx);
           buffer = buffer.slice(idx + 1);
 
           // Trim trailing CR
           if (line.endsWith("\r")) line = line.slice(0, -1);
+          idx = buffer.indexOf("\n");
 
           if (line === "") {
             // Dispatch accumulated event
@@ -160,7 +161,6 @@ async function forwardToHttpServer(request: JsonRpcRequest): Promise<void> {
             let payload = line.slice(5); // after 'data:'
             if (payload.startsWith(" ")) payload = payload.slice(1);
             eventData += payload;
-            continue;
           }
 
           // Other SSE fields (event, id, retry) are ignored for now
@@ -218,11 +218,19 @@ async function main(): Promise<void> {
   logError("Bun Docs MCP proxy started");
 
   // If running under Bun, use its streaming stdin API
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const isBun = typeof (globalThis as any).Bun !== "undefined";
+  interface GlobalWithBun {
+    Bun?: {
+      stdin: { stream: () => ReadableStream<Uint8Array> };
+    };
+  }
+  const isBun = typeof (globalThis as GlobalWithBun).Bun !== "undefined";
 
   if (isBun) {
-    const stdin = (globalThis as any).Bun.stdin.stream();
+    const bunStdin = (globalThis as GlobalWithBun).Bun?.stdin;
+    if (!bunStdin) {
+      throw new Error("Bun stdin not available");
+    }
+    const stdin = bunStdin.stream();
     const reader = stdin.getReader();
     const decoder = new TextDecoder();
     let buffer = "";
@@ -243,12 +251,13 @@ async function main(): Promise<void> {
         buffer += decoder.decode(value, { stream: true });
 
         // Process complete lines
-        let newlineIndex: number;
-        while ((newlineIndex = buffer.indexOf("\n")) !== -1) {
+        let newlineIndex = buffer.indexOf("\n");
+        while (newlineIndex !== -1) {
           const line = buffer.slice(0, newlineIndex);
           buffer = buffer.slice(newlineIndex + 1);
 
           await handleRequest(line);
+          newlineIndex = buffer.indexOf("\n");
         }
       }
     } catch (error) {
@@ -268,11 +277,12 @@ async function main(): Promise<void> {
     process.stdin.on("data", async (chunk: string) => {
       buffer += chunk;
 
-      let idx: number;
-      while ((idx = buffer.indexOf("\n")) !== -1) {
+      let idx = buffer.indexOf("\n");
+      while (idx !== -1) {
         const line = buffer.slice(0, idx);
         buffer = buffer.slice(idx + 1);
         await handleRequest(line);
+        idx = buffer.indexOf("\n");
       }
     });
 
@@ -289,7 +299,13 @@ async function main(): Promise<void> {
     });
 
     // If input is already ended (e.g., no TTY), resume to receive 'end'
-    if (process.stdin.readable && (process.stdin as any).isPaused?.()) {
+    interface ReadableWithIsPaused extends Omit<NodeJS.ReadStream, "isPaused"> {
+      isPaused?: () => boolean;
+    }
+    if (
+      process.stdin.readable &&
+      (process.stdin as ReadableWithIsPaused).isPaused?.()
+    ) {
       process.stdin.resume();
     }
   } catch (error) {

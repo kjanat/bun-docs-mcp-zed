@@ -1,11 +1,12 @@
 [package]
 name = "bun-docs-mcp-zed"
 version = "0.0.2"
-edition = "2024"
+edition = "2021"
 license = "MIT"
 
 [lib]
 crate-type = ["cdylib"]
+path = "src/lib.rs"
 
 [dependencies]
 zed_extension_api = "0.7.0"

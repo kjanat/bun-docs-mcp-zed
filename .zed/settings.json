@@ -4,9 +4,17 @@
 // see the documentation: https://zed.dev/docs/configuring-zed#settings-files
 {
   "languages": {
-    "TypeScript": { "formatter": "prettier", "format_on_save": "on" },
-    "JavaScript": { "formatter": null, "format_on_save": "off" }
-    // "Rust": {""}
+    "JavaScript": { "language_servers": null, "formatter": null, "format_on_save": "off" },
+    "TypeScript": {
+      "formatter": { "language_server": { "name": "biome" } },
+      "code_actions_on_format": {
+        "source.organizeImports.biome": true,
+        "source.action.useSortedProperties.biome": true,
+        "source.fixAll.biome": true
+      }
+    },
+    "JSON": { "formatter": { "language_server": { "name": "biome" } } },
+    "JSONC": { "formatter": { "language_server": { "name": "biome" } } }
   },
   "lsp": {
     "rust-analyzer": {
@@ -26,7 +34,7 @@
           "analyzerTargetDir": true
         },
         "cargo": {
-          "target": "wasm32-wasi"
+          "target": "wasm32-wasip2"
         }
       }
     }

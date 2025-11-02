@@ -44,7 +44,7 @@ cargo build --target wasm32-wasip2 --release
 
 # Test proxy
 
-echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | node proxy.js
+echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | node proxy.js | jq
 
 # Install in Zed
 # Extensions → Install Dev Extension → select bun-docs-mcp-zed/
@@ -54,9 +54,9 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | node proxy.j
 
 1. Update extension.toml:5 → your name/email
 2. Update extension.toml:7 → your repo URL
-3. Fork https://github.com/zed-industries/extensions
-4. Add submodule: git submodule add https://github.com/kjanat/bun-docs-mcp-zed extensions/bun-docs-mcp
-5. Update extensions.toml:
+3. Fork `https://github.com/zed-industries/extensions`
+4. Add submodule: `git submodule add https://github.com/kjanat/bun-docs-mcp-zed extensions/bun-docs-mcp`
+5. Update `extensions.toml`:
 
    ```toml
    [bun-docs-mcp]
@@ -64,7 +64,7 @@ echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' | node proxy.j
    version = "0.0.2"
    ```
 
-6. Run pnpm sort-extensions
+6. Run `pnpm sort-extensions`
 7. Open PR
 
 Extension now correctly implements MCP context server pattern for Zed!
@@ -208,22 +208,22 @@ In your PR, do the following:
 
 1. Add your extension as a Git submodule within the `extensions/` directory
 
-```sh
-git submodule add https://github.com/kjanat/bun-docs-mcp-zed.git extensions/bun-docs-mcp
-git add extensions/bun-docs-mcp
-```
+    ```sh
+    git submodule add https://github.com/kjanat/bun-docs-mcp-zed.git extensions/bun-docs-mcp
+    git add extensions/bun-docs-mcp
+    ```
 
-> All extension submodules must use HTTPS URLs and not SSH URLS (`git@github.com`).
+    > All extension submodules must use HTTPS URLs and not SSH URLS (`git@github.com`).
 
 2. Add a new entry to the top-level `extensions.toml` file containing your extension:
 
-```toml
-[bun-docs-mcp]
-submodule = "extensions/bun-docs-mcp"
-version = "0.0.2"
-```
+    ```toml
+    [bun-docs-mcp]
+    submodule = "extensions/bun-docs-mcp"
+    version = "0.0.2"
+    ```
 
-> If your extension is in a subdirectory within the submodule you can use the `path` field to point to where the extension resides.
+    > If your extension is in a subdirectory within the submodule you can use the `path` field to point to where the extension resides.
 
 3. Run `pnpm sort-extensions` to ensure `extensions.toml` and `.gitmodules` are sorted
 
@@ -716,11 +716,11 @@ Here's a basic database-backed REST API using Bun's router with zero dependencie
 
 <CodeGroup>
   ```ts server.ts expandable icon="file-code" theme={"theme":{"light":"github-light","dark":"dracula"}}
-  import type {Post} from './types.ts';
-  import {Database} from 'bun:sqlite';
+  import type { Post } from "./types.ts";
+  import { Database } from "bun:sqlite";
 
-const db = new Database('posts.db');
-db.exec(`     CREATE TABLE IF NOT EXISTS posts (
+  const db = new Database("posts.db");
+  db.exec(`     CREATE TABLE IF NOT EXISTS posts (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       content TEXT NOT NULL,
@@ -728,55 +728,56 @@ db.exec(`     CREATE TABLE IF NOT EXISTS posts (
     )
   `);
 
-Bun.serve({
-routes: {
-// List posts
-'/api/posts': {
-GET: () => {
-const posts = db.query('SELECT \* FROM posts').all();
-return Response.json(posts);
-},
+  Bun.serve({
+    routes: {
+      // List posts
+      "/api/posts": {
+        GET: () => {
+          const posts = db.query("SELECT \* FROM posts").all();
+          return Response.json(posts);
+        },
 
-// Create post
-POST: async req => {
-const post: Omit<Post, 'id' | 'created_at'> = await req.json();
-const id = crypto.randomUUID();
+        // Create post
+        POST: async (req) => {
+          const post: Omit<Post, "id" | "created_at"> = await req.json();
+          const id = crypto.randomUUID();
 
-db.query(
-`INSERT INTO posts (id, title, content, created_at)
+          db.query(
+            `INSERT INTO posts (id, title, content, created_at)
              VALUES (?, ?, ?, ?)`,
-).run(id, post.title, post.content, new Date().toISOString());
+          ).run(id, post.title, post.content, new Date().toISOString());
 
-return Response.json({id, ...post}, {status: 201});
-},
-},
+          return Response.json({ id, ...post }, { status: 201 });
+        },
+      },
 
-// Get post by ID
-'/api/posts/:id': req => {
-const post = db.query('SELECT \* FROM posts WHERE id = ?').get(req.params.id);
+      // Get post by ID
+      "/api/posts/:id": (req) => {
+        const post = db
+          .query("SELECT \* FROM posts WHERE id = ?")
+          .get(req.params.id);
 
-if (!post) {
-return new Response('Not Found', {status: 404});
-}
+        if (!post) {
+          return new Response("Not Found", { status: 404 });
+        }
 
-return Response.json(post);
-},
-},
+        return Response.json(post);
+      },
+    },
 
-error(error) {
-console.error(error);
-return new Response('Internal Server Error', {status: 500});
-},
-});
-
+    error(error) {
+      console.error(error);
+      return new Response("Internal Server Error", { status: 500 });
+    },
+  });
 ````
 
 ```ts types.ts icon="/icons/typescript.svg" theme={"theme":{"light":"github-light","dark":"dracula"}}
 export interface Post {
-	id: string;
-	title: string;
-	content: string;
-	created_at: string;
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
 }
 ````
 

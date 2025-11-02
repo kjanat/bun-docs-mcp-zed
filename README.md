@@ -6,8 +6,12 @@ MCP server integration for searching [Bun documentation](https://bun.sh) directl
 
 This extension bridges Zed's stdio-based MCP client with the Bun HTTP MCP server:
 
-```
-Zed Editor (stdio) ←→ proxy.ts (Bun) ←→ https://bun.com/docs/mcp (HTTP)
+```mermaid
+graph LR
+    A["Zed Editor (stdio)"] <-- "JSON-RPC over stdio" --> B["proxy.ts (Bun > Node)"]
+    B <-- "HTTP POST requests" --> C["https://bun.com/docs/mcp (HTTP)"]
+    C <-- "SSE responses" --> B
+    B <-- "JSON-RPC over stdio" --> A
 ```
 
 The `proxy.ts` script translates between stdio and HTTP transports,
@@ -22,17 +26,18 @@ allowing Zed to communicate with the Bun documentation server.
 
 ## Requirements
 
-- **Bun**: Required to run the HTTP-to-stdio proxy ([bun.sh](https://bun.sh))
+- **Bun**: Required\* to run the HTTP-to-stdio proxy ([bun.sh](https://bun.sh))
+  - \*Uses node.js as fallback.
 - **Rust**: Required for building the extension (via rustup)
 
 ## Installation
 
 ### Dev Installation (Local Development)
 
-1. Install [Bun](https://bun.sh) (v1.0 or higher)
-2. Install Rust via [rustup](https://www.rust-lang.org/tools/install)
+1. Install [Bun][bun.sh] (v1.0 or higher)
+2. Install Rust via [rustup][rustup]
 3. Clone this repository
-4. Build the extension: `cargo build --target wasm32-wasip1 --release`
+4. Build the extension: `cargo build --target wasm32-wasip2 --release`
 5. In Zed, open the Extensions page
 6. Click `Install Dev Extension` (or use `zed::InstallDevExtension` action)
 7. Select the `bun-docs-mcp-zed` directory
@@ -42,7 +47,7 @@ allowing Zed to communicate with the Bun documentation server.
 Once published to the Zed extension registry:
 
 1. Open Zed
-2. Go to Extensions (`Cmd/Ctrl + Shift + X`)
+2. Go to Extensions (<kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>)
 3. Search for "Bun Docs MCP"
 4. Click Install
 
@@ -64,7 +69,7 @@ After installation, the Bun documentation MCP server will be available in Zed. Y
 ## MCP Server Details
 
 - **Name**: Bun
-- **Version**: 1.0.0
+- **Version**: 0.0.2
 - **Transport**: HTTP
 - **Endpoint**: `https://bun.com/docs/mcp`
 
@@ -88,7 +93,7 @@ Search across the Bun knowledge base to find relevant information, code examples
 
 ### Project Structure
 
-```
+```sh
 bun-docs-mcp-zed/
 ├── extension.toml      # Extension metadata & context server registration
 ├── Cargo.toml          # Rust build configuration
@@ -101,25 +106,28 @@ bun-docs-mcp-zed/
 
 ### Building
 
-```bash
+```sh
 # Add WASM target (first time only)
-rustup target add wasm32-wasip1
+rustup target add wasm32-wasip2
 
 # Build the WASM extension
-cargo build --target wasm32-wasip1 --release
+cargo build --target wasm32-wasip2 --release
 
 # Build the proxy.js file
 bun build.ts
 # Or run this if you don't have bun installed:
 # npx -y bun build.ts
+```
 
-# Test the proxy independently
+#### Test the proxy independently
+
+```sh
 echo '
 {
   "jsonrpc": "2.0",
   "id": 1,
   "method": "initialize",
-  "params": { 
+  "params": {
     "protocolVersion": "2024-11-05",
     "capabilities": {},
     "clientInfo": {
@@ -142,16 +150,17 @@ echo '
 ' | jq -c \
   | node proxy.js \
   | jq .
-
-# Test in Zed
-# Use "Install Dev Extension" from the Extensions page
 ```
+
+#### Test in Zed
+
+Use "Install Dev Extension" from the Extensions page
 
 ### How It Works
 
-1. **Extension Registration**: `extension.toml` registers the `bun-docs` context server
-2. **Command Provider**: [`src/lib.rs`](./src/lib.rs) implements `context_server_command` to return the Bun command
-3. **Protocol Bridge**: `proxy.ts` (written in TypeScript, runs on Bun) translates between:
+1. **Extension Registration**: [`extension.toml`][extension.toml] registers the `bun-docs` context server
+2. **Command Provider**: [`src/lib.rs`][lib.rs] implements `context_server_command` to return the Bun command
+3. **Protocol Bridge**: [`proxy.ts`][proxy.ts] (written in TypeScript, runs on Bun) translates between:
    - Zed's stdio JSON-RPC messages
    - HTTP POST requests to `https://bun.com/docs/mcp`
    - Server-Sent Events (SSE) responses from the Bun server
@@ -169,10 +178,22 @@ The proxy is built with Bun's native APIs for several reasons:
 
 ## License
 
-[MIT](./LICENSE)
+[MIT][license]
 
 ## Links
 
-- [Bun Documentation](https://bun.sh)
-- [Bun MCP Server](https://bun.com/docs/mcp)
-- [Zed Extensions Guide](https://zed.dev/docs/extensions)
+- [Bun Documentation][bun.sh]
+- [Bun MCP Server][bun-mcp]
+- [Zed Extensions Guide][zed-extensions]
+
+<!-- Link definitions -->
+
+[zed-dev]: https://zed.dev
+[bun.sh]: https://bun.sh
+[bun-mcp]: https://bun.com/docs/mcp
+[zed-extensions]: https://zed.dev/docs/extensions
+[rustup]: https://www.rust-lang.org/tools/install
+[license]: ./LICENSE
+[lib.rs]: ./src/lib.rs
+[extension.toml]: ./extension.toml
+[proxy.ts]: ./proxy.ts

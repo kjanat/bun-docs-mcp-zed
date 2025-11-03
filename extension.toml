@@ -1,7 +1,7 @@
 id = "bun-docs-mcp"
 name = "Bun Docs MCP"
 description = "Bun documentation directly in Zed (https://bun.com/docs/mcp)"
-version = "0.1.0-alpha"
+version = "0.1.0"
 schema_version = 1
 authors = ["Kaj Kowalski <dev@kajkowalski.nl>"]
 repository = "https://github.com/kjanat/bun-docs-mcp-zed"

@@ -1,4 +1,5 @@
 use std::fs;
+use std::path::PathBuf;
 use zed_extension_api as zed;
 
 struct BunDocsMcpExtension {
@@ -38,6 +39,9 @@ impl BunDocsMcpExtension {
             return Ok(cached.clone());
         }
 
+        const PROXY_REPO: &str = "kjanat/bun-docs-mcp-proxy";
+        const PROXY_DIR: &str = "bun-docs-mcp-proxy";
+
         // Get work directory (where extension runs)
         let work_dir = std::env::var("PWD")
             .or_else(|_| std::env::current_dir().map(|p| p.to_string_lossy().to_string()))
@@ -45,28 +49,29 @@ impl BunDocsMcpExtension {
 
         let binary_name = Self::get_binary_name();
 
-        // After extraction, the binary is in a subdirectory
-        // The tar.gz extracts to: bun-docs-mcp-proxy/bun-docs-mcp-proxy
-        let binary_path = format!("{}/bun-docs-mcp-proxy/{}", work_dir, binary_name);
+        // Construct binary path using PathBuf for cross-platform compatibility
+        let binary_path = PathBuf::from(&work_dir).join(PROXY_DIR).join(binary_name);
+
+        let binary_path_str = binary_path
+            .to_str()
+            .ok_or_else(|| "Binary path contains invalid UTF-8".to_string())?
+            .to_string();
 
         // Check if binary already exists
         if fs::metadata(&binary_path).is_ok() {
-            self.cached_binary_path = Some(binary_path.clone());
-            return Ok(binary_path);
+            self.cached_binary_path = Some(binary_path_str.clone());
+            return Ok(binary_path_str);
         }
 
         // Download from GitHub Releases
-        // The proxy is in a separate repo: kjanat/bun-docs-mcp-proxy
-        let repo = "kjanat/bun-docs-mcp-proxy";
-
         let release = zed::latest_github_release(
-            repo,
+            PROXY_REPO,
             zed::GithubReleaseOptions {
                 require_assets: true,
                 pre_release: false,
             },
         )
-        .map_err(|e| format!("Failed to get latest release: {}", e))?;
+        .map_err(|e| format!("Failed to get latest release from {}: {}", PROXY_REPO, e))?;
 
         // Find the asset for our platform
         let archive_name = Self::get_platform_archive_name()?;
@@ -74,7 +79,12 @@ impl BunDocsMcpExtension {
             .assets
             .iter()
             .find(|asset| asset.name == archive_name)
-            .ok_or_else(|| format!("No archive found for platform: {}", archive_name))?;
+            .ok_or_else(|| {
+                format!(
+                    "No {} asset found in release {} for {}",
+                    archive_name, release.version, PROXY_REPO
+                )
+            })?;
 
         // Download and extract the archive
         let file_type = if archive_name.ends_with(".zip") {
@@ -85,16 +95,29 @@ impl BunDocsMcpExtension {
             zed::DownloadedFileType::Uncompressed
         };
 
-        zed::download_file(&asset.download_url, binary_name, file_type)
-            .map_err(|e| format!("Failed to download binary: {}", e))?;
+        // Download extracts to current directory
+        zed::download_file(&asset.download_url, PROXY_DIR, file_type).map_err(|e| {
+            format!(
+                "Failed to download {} from {}: {}",
+                archive_name, asset.download_url, e
+            )
+        })?;
+
+        // Verify the binary was extracted correctly
+        if !binary_path.exists() {
+            return Err(format!(
+                "Binary not found at expected path after extraction: {}",
+                binary_path_str
+            ));
+        }
 
         // Make it executable (Unix platforms)
         #[cfg(unix)]
-        zed::make_file_executable(&binary_path)
-            .map_err(|e| format!("Failed to make {} executable: {}", binary_path, e))?;
+        zed::make_file_executable(&binary_path_str)
+            .map_err(|e| format!("Failed to make {} executable: {}", binary_path_str, e))?;
 
-        self.cached_binary_path = Some(binary_path.clone());
-        Ok(binary_path)
+        self.cached_binary_path = Some(binary_path_str.clone());
+        Ok(binary_path_str)
     }
 }
 

@@ -1,0 +1,22 @@
+name: Release Zed Extension
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release-extension:
+    name: Release Bun Docs MCP Extension
+    runs-on: ubuntu-latest
+    steps:
+      - uses: huacnlee/zed-extension-action@v1
+        with:
+          extension-name: bun-docs-mcp
+          # Your fork of zed-industries/extensions
+          # Change this to YOUR_USERNAME after forking
+          push-to: kjanat/zed-extensions
+        env:
+          # Create this secret in your repository settings
+          # The token needs "repo" and "workflow" scopes
+          COMMITTER_TOKEN: ${{ secrets.COMMITTER_TOKEN }}

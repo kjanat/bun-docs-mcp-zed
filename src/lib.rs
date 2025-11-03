@@ -68,6 +68,8 @@ impl BunDocsMcpExtension {
             None => true, // Never checked
             Some(last) => {
                 let interval = std::time::Duration::from_secs(UPDATE_CHECK_INTERVAL_SECS);
+                // If elapsed() fails (system clock moved backward), assume interval has passed.
+                // This errs on the side of checking for updates rather than never checking.
                 last.elapsed().unwrap_or(interval) >= interval
             }
         }
@@ -117,8 +119,11 @@ impl BunDocsMcpExtension {
 
     fn ensure_binary(&mut self) -> Result<String, String> {
         // Check for updates if binary is cached and enough time has passed
-        if let Some(cached) = self.cached_binary_path.clone() {
+        if self.cached_binary_path.is_some() {
             if self.should_check_for_update() {
+                // Clone only when needed for update check (avoids clone on every call)
+                let cached = self.cached_binary_path.as_ref().unwrap().clone();
+
                 // Update check failures are intentionally ignored to avoid disrupting user workflow.
                 // The extension continues using the existing binary if update check fails due to:
                 // - Network errors (GitHub API unavailable)
@@ -130,8 +135,8 @@ impl BunDocsMcpExtension {
             }
 
             // If update deleted binary, cached_binary_path will be None, continue to download
-            if self.cached_binary_path.is_some() {
-                return Ok(cached);
+            if let Some(cached) = &self.cached_binary_path {
+                return Ok(cached.clone());
             }
         }
 

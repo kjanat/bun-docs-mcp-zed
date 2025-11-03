@@ -1,5 +1,7 @@
 # Bun Docs MCP for Zed
 
+[![Rust CI](https://github.com/kjanat/bun-docs-mcp-zed/actions/workflows/rust-ci.yml/badge.svg)][rust-ci]
+
 Search Bun documentation directly in Zed using the Model Context Protocol (MCP).
 
 **Pure Rust implementation** with zero runtime dependencies.
@@ -19,7 +21,8 @@ Search Bun documentation directly in Zed using the Model Context Protocol (MCP).
 
 1. Open Zed
 2. <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> (macOS) or  
-   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> (Linux/Windows) → Extensions
+   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> (Linux/Windows)  
+   → `Extensions`
 3. Search: "Bun Docs MCP"
 4. Click Install
 
@@ -29,12 +32,14 @@ Search Bun documentation directly in Zed using the Model Context Protocol (MCP).
 # Clone this repository
 git clone https://github.com/kjanat/bun-docs-mcp-zed
 cd bun-docs-mcp-zed
-
-# Install in Zed
-# Press Cmd+Shift+P (macOS) or Ctrl+Shift+P (Linux/Windows)
-# Type: "zed: install dev extension"
-# Select this directory
 ```
+
+Then, install in Zed:
+
+- Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (macOS) or  
+  <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (Linux/Windows)
+- Type: "zed: install dev extension"
+- Select this directory
 
 **No build required!** The extension auto-downloads the Rust binary from GitHub Releases on first use.
 
@@ -48,13 +53,11 @@ cd bun-docs-mcp-zed
 
 ### Example Queries
 
-```
-How does Bun.serve work?
-Explain Bun's WebSocket support
-What are Bun's TCP APIs?
-How do I use Bun.file?
-Show me Bun.spawn examples
-```
+- How does `Bun.serve` work?
+- Explain Bun's `WebSocket` support
+- What are Bun's TCP APIs?
+- How do I use `Bun.file`?
+- Show me `Bun.spawn` examples
 
 ## Architecture
 
@@ -73,7 +76,7 @@ flowchart TD
 ### How It Works
 
 1. **Extension**: Zed loads the WASM extension from this repo
-2. **Auto-Download**: On first use, downloads platform-specific binary from [GitHub Releases](https://github.com/kjanat/bun-docs-mcp-proxy/releases)
+2. **Auto-Download**: On first use, downloads platform-specific binary from [GitHub Releases][releases]
 3. **Proxy Binary**: Rust binary translates between:
    - Zed's stdin/stdout (JSON-RPC)
    - Bun Docs HTTP API (SSE responses)
@@ -96,13 +99,13 @@ Static Linux builds (musl) also available.
 
 ## Performance
 
-| Metric           | Value                                   |
-| ---------------- | --------------------------------------- |
-| **First Use**    | ~2-3 seconds (one-time download)        |
-| **Subsequent**   | ~4ms startup (instant!)                 |
-| **Binary Size**  | 2.7 MB                       |
-| **Memory**       | ~2-5 MB                      |
-| **Dependencies** | None (standalone binary)     |
+| Metric           | Value                            |
+| ---------------- | -------------------------------- |
+| **First Use**    | ~2-3 seconds (one-time download) |
+| **Subsequent**   | ~4ms startup (instant!)          |
+| **Binary Size**  | 2.7 MB                           |
+| **Memory**       | ~2-5 MB                          |
+| **Dependencies** | None (standalone binary)         |
 
 ## Development
 
@@ -118,7 +121,7 @@ bun-docs-mcp-zed/
 └── README.md           # This file
 ```
 
-**Proxy implementation**: Separate repo at [kjanat/bun-docs-mcp-proxy](https://github.com/kjanat/bun-docs-mcp-proxy)
+**Proxy implementation**: Separate repo at [kjanat/bun-docs-mcp-proxy][bun-docs-mcp-proxy]
 
 ### Building
 
@@ -147,9 +150,9 @@ cargo build --release --lib
 **MCP Protocol**: JSON-RPC 2.0 over stdio  
 **Transport**: Server-Sent Events (SSE) over HTTPS  
 **API Endpoint**: `https://bun.com/docs/mcp`  
-**Binary Source**: Auto-downloaded from [GitHub Releases](https://github.com/kjanat/bun-docs-mcp-proxy/releases)
+**Binary Source**: Auto-downloaded from [GitHub Releases][releases]
 
-For detailed architecture information, see [ARCHITECTURE.md](./ARCHITECTURE.md).
+For detailed architecture information, see [ARCHITECTURE.md][architecture].
 
 ## Troubleshooting
 
@@ -202,26 +205,36 @@ This extension is implemented in pure Rust for:
 - **Reliability**: Compile-time safety guarantees
 - **Boredom**: Why not...
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for migration history and technical details.
+See [ARCHITECTURE.md][architecture] for migration history and technical details.
 
 ## Contributing
 
 Contributions welcome!
 
-**Proxy implementation**: [kjanat/bun-docs-mcp-proxy](https://github.com/kjanat/bun-docs-mcp-proxy)  
+**Proxy implementation**: [kjanat/bun-docs-mcp-proxy][bun-docs-mcp-proxy]  
 **Extension**: This repository
 
 ## License
 
-MIT - See [LICENSE](./LICENSE)
+MIT - See [LICENSE][license]
 
 ## Credits
 
-- [Zed Editor](https://zed.dev) - Extensible code editor
-- [Bun](https://bun.sh) - Fast JavaScript runtime
-- [Model Context Protocol](https://modelcontextprotocol.io) - LLM integration standard
-- [Bun Docs MCP Server](https://bun.com/docs/mcp) - Official Bun documentation API
+- [Zed Editor][zed.dev] - Extensible code editor
+- [Bun][bun.sh] - Fast JavaScript runtime
+- [Model Context Protocol][mcp] - LLM integration standard
+- [Bun Docs MCP Server][bun-mcp] - Official Bun documentation API
 
 ---
 
 **Ready to search Bun docs in Zed!** Install the extension and start asking questions. 🚀
+
+[bun-docs-mcp-proxy]: https://github.com/kjanat/bun-docs-mcp-proxy
+[releases]: https://github.com/kjanat/bun-docs-mcp-proxy/releases
+[bun-mcp]: https://bun.com/docs/mcp
+[mcp]: https://modelcontextprotocol.io
+[bun.sh]: https://bun.sh
+[zed.dev]: https://zed.dev
+[license]: ./LICENSE
+[architecture]: ./ARCHITECTURE.md
+[rust-ci]: https://github.com/kjanat/bun-docs-mcp-zed/actions/workflows/rust-ci.yml

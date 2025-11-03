@@ -15,7 +15,9 @@ repos:
     rev: v0.6.39
     hooks:
       - id: tombi-format
+        exclude: ^Cargo\.lock$
       - id: tombi-lint
+        exclude: ^Cargo\.lock$
   - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
     hooks:

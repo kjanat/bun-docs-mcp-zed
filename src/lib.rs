@@ -4,6 +4,9 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 use zed_extension_api as zed;
 
+// How often to check for binary updates (24 hours)
+const UPDATE_CHECK_INTERVAL_SECS: u64 = 86400;
+
 struct BunDocsMcpExtension {
     cached_binary_path: Option<String>,
     last_update_check: Option<SystemTime>,
@@ -64,9 +67,8 @@ impl BunDocsMcpExtension {
         match self.last_update_check {
             None => true, // Never checked
             Some(last) => {
-                // Check once per day (86400 seconds)
-                let day = std::time::Duration::from_secs(86400);
-                last.elapsed().unwrap_or(day) >= day
+                let interval = std::time::Duration::from_secs(UPDATE_CHECK_INTERVAL_SECS);
+                last.elapsed().unwrap_or(interval) >= interval
             }
         }
     }
@@ -117,6 +119,12 @@ impl BunDocsMcpExtension {
         // Check for updates if binary is cached and enough time has passed
         if let Some(cached) = self.cached_binary_path.clone() {
             if self.should_check_for_update() {
+                // Update check failures are intentionally ignored to avoid disrupting user workflow.
+                // The extension continues using the existing binary if update check fails due to:
+                // - Network errors (GitHub API unavailable)
+                // - Version parsing failures
+                // - Binary execution errors
+                // This ensures the extension remains usable even with connectivity issues.
                 self.check_and_update_binary(&cached).ok();
                 self.last_update_check = Some(SystemTime::now());
             }
@@ -443,11 +451,11 @@ mod tests {
         ext.last_update_check = Some(SystemTime::now());
         assert!(!ext.should_check_for_update());
 
-        // Should check after 1 day
-        let one_day_ago = SystemTime::now()
-            .checked_sub(std::time::Duration::from_secs(86400))
+        // Should check after update interval has passed
+        let interval_ago = SystemTime::now()
+            .checked_sub(std::time::Duration::from_secs(UPDATE_CHECK_INTERVAL_SECS))
             .unwrap();
-        ext.last_update_check = Some(one_day_ago);
+        ext.last_update_check = Some(interval_ago);
         assert!(ext.should_check_for_update());
     }
 }

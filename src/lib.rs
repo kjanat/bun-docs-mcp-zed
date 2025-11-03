@@ -51,7 +51,6 @@ impl BunDocsMcpExtension {
         // Parse "bun-docs-mcp-proxy 0.1.2" -> "0.1.2"
         let version_output = String::from_utf8_lossy(&output.stdout);
         let version = version_output
-            .trim()
             .split_whitespace()
             .last()
             .ok_or_else(|| "Failed to parse version output".to_string())?

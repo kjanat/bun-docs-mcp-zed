@@ -7,6 +7,9 @@ use zed_extension_api as zed;
 // How often to check for binary updates (24 hours)
 const UPDATE_CHECK_INTERVAL_SECS: u64 = 86400;
 
+// Context server identifier that must match extension.toml
+const CONTEXT_SERVER_ID: &str = "bun-docs-mcp";
+
 struct BunDocsMcpExtension {
     cached_binary_path: Option<String>,
     last_update_check: Option<SystemTime>,
@@ -253,8 +256,6 @@ impl zed::Extension for BunDocsMcpExtension {
         context_server_id: &zed::ContextServerId,
         _project: &zed::Project,
     ) -> Result<zed::Command, String> {
-        const CONTEXT_SERVER_ID: &str = "bun-docs-mcp";
-
         match context_server_id.as_ref() {
             CONTEXT_SERVER_ID => {
                 let binary_path = self.ensure_binary()?;
@@ -379,9 +380,8 @@ mod tests {
 
     #[test]
     fn test_context_server_id_constant() {
-        // Verify CONTEXT_SERVER_ID is consistent with extension.toml
-        const EXPECTED_ID: &str = "bun-docs-mcp";
-        assert_eq!(EXPECTED_ID, "bun-docs-mcp");
+        // Verify CONTEXT_SERVER_ID matches extension.toml
+        assert_eq!(CONTEXT_SERVER_ID, "bun-docs-mcp");
     }
 
     #[test]

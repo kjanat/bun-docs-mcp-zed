@@ -10,7 +10,11 @@ crate-type = ["cdylib"]
 path = "src/lib.rs"
 
 [dependencies]
+sha2 = "0.10"
 zed_extension_api = "0.7.0"
+
+[dev-dependencies]
+tempfile = "3"
 
 [profile.release]
 opt-level = "z"

@@ -2,7 +2,7 @@ name: Rust CI
 
 on:
   push:
-    branches: [master, rewrite/bun-to-rust]
+    branches: [master]
     paths:
       - "src/**/*.rs"
       - "Cargo.toml"

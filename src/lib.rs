@@ -340,7 +340,7 @@ mod tests {
     #[cfg(windows)]
     fn test_binary_path_construction() {
         // Test that PathBuf construction works correctly on Windows
-        let work_dir = "/test/work";
+        let work_dir = "C:\\test\\work";
         let binary_name = "bun-docs-mcp-proxy";
 
         let path = PathBuf::from(work_dir)
@@ -349,7 +349,7 @@ mod tests {
 
         assert_eq!(
             path.to_str().unwrap(),
-            "\\test\\work\\bun-docs-mcp-proxy\\bun-docs-mcp-proxy"
+            "C:\\test\\work\\bun-docs-mcp-proxy\\bun-docs-mcp-proxy"
         );
     }
 
@@ -380,8 +380,8 @@ mod tests {
 
         // The actual function call would require env mocking
         // This documents the expected error format
-        assert!(expected_prefix.len() > 0);
-        assert!(expected_suffix.len() > 0);
+        assert!(!expected_prefix.is_empty());
+        assert!(!expected_suffix.is_empty());
     }
 
     #[test]
@@ -393,9 +393,8 @@ mod tests {
     #[test]
     fn test_constants_defined() {
         // Verify all required constants are properly defined
-        assert_eq!(
-            BunDocsMcpExtension::get_binary_name().len() > 0,
-            true,
+        assert!(
+            !BunDocsMcpExtension::get_binary_name().is_empty(),
             "Binary name should be non-empty"
         );
 
@@ -412,17 +411,17 @@ mod tests {
     fn test_version_parsing() {
         // Test parsing version output format "bun-docs-mcp-proxy 0.1.2"
         let version_output = "bun-docs-mcp-proxy 0.1.2";
-        let version = version_output.trim().split_whitespace().last().unwrap();
+        let version = version_output.split_whitespace().last().unwrap();
         assert_eq!(version, "0.1.2");
 
         // Test with just version number
         let version_output = "0.1.2";
-        let version = version_output.trim().split_whitespace().last().unwrap();
+        let version = version_output.split_whitespace().last().unwrap();
         assert_eq!(version, "0.1.2");
 
         // Test with v prefix
         let version_output = "bun-docs-mcp-proxy v0.1.2";
-        let version = version_output.trim().split_whitespace().last().unwrap();
+        let version = version_output.split_whitespace().last().unwrap();
         assert_eq!(version, "v0.1.2");
     }
 
@@ -474,20 +473,20 @@ mod tests {
     fn test_version_parsing_edge_cases() {
         // Test malformed version output (empty string)
         let version_output = "";
-        assert_eq!(version_output.trim().split_whitespace().last(), None);
+        assert_eq!(version_output.split_whitespace().last(), None);
 
         // Test malformed version output (whitespace only)
         let version_output = "   ";
-        assert_eq!(version_output.trim().split_whitespace().last(), None);
+        assert_eq!(version_output.split_whitespace().last(), None);
 
         // Test version output with multiple spaces
         let version_output = "bun-docs-mcp-proxy    0.1.2";
-        let version = version_output.trim().split_whitespace().last().unwrap();
+        let version = version_output.split_whitespace().last().unwrap();
         assert_eq!(version, "0.1.2");
 
         // Test version with newlines
         let version_output = "bun-docs-mcp-proxy 0.1.2\n";
-        let version = version_output.trim().split_whitespace().last().unwrap();
+        let version = version_output.split_whitespace().last().unwrap();
         assert_eq!(version, "0.1.2");
     }
 

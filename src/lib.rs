@@ -1,9 +1,11 @@
 use std::fs;
 use std::path::PathBuf;
+use std::time::SystemTime;
 use zed_extension_api as zed;
 
 struct BunDocsMcpExtension {
     cached_binary_path: Option<String>,
+    last_update_check: Option<SystemTime>,
 }
 
 impl BunDocsMcpExtension {
@@ -34,10 +36,87 @@ impl BunDocsMcpExtension {
         }
     }
 
+    fn get_binary_version(binary_path: &str) -> Result<String, String> {
+        use std::process::Command;
+
+        let output = Command::new(binary_path)
+            .arg("--version")
+            .output()
+            .map_err(|e| format!("Failed to run binary --version: {}", e))?;
+
+        if !output.status.success() {
+            return Err("Binary --version exited with error".to_string());
+        }
+
+        // Parse "bun-docs-mcp-proxy 0.1.2" -> "0.1.2"
+        let version_output = String::from_utf8_lossy(&output.stdout);
+        let version = version_output
+            .trim()
+            .split_whitespace()
+            .last()
+            .ok_or_else(|| "Failed to parse version output".to_string())?
+            .to_string();
+
+        Ok(version)
+    }
+
+    fn should_check_for_update(&self) -> bool {
+        match self.last_update_check {
+            None => true, // Never checked
+            Some(last) => {
+                // Check once per day (86400 seconds)
+                let day = std::time::Duration::from_secs(86400);
+                last.elapsed().unwrap_or(day) >= day
+            }
+        }
+    }
+
+    fn check_and_update_binary(&mut self, binary_path: &str) -> Result<(), String> {
+        // Get current binary version
+        let current_version = match Self::get_binary_version(binary_path) {
+            Ok(v) => v,
+            Err(_) => return Ok(()), // Old binary without --version, skip update check
+        };
+
+        // Get latest release from GitHub (non-blocking: ignore errors)
+        let release = zed::latest_github_release(
+            "kjanat/bun-docs-mcp-proxy",
+            zed::GithubReleaseOptions {
+                require_assets: true,
+                pre_release: false,
+            },
+        )
+        .ok();
+
+        let Some(release) = release else {
+            return Ok(()); // Network error, skip update
+        };
+
+        // Compare versions (strip 'v' prefix if present)
+        let latest_version = release.version.trim_start_matches('v');
+        let current_version_stripped = current_version.trim_start_matches('v');
+
+        if latest_version != current_version_stripped {
+            // Delete old binary to trigger re-download on next call
+            fs::remove_file(binary_path).ok();
+            self.cached_binary_path = None;
+        }
+
+        Ok(())
+    }
+
     fn ensure_binary(&mut self) -> Result<String, String> {
-        // Return cached path if we already downloaded it
-        if let Some(cached) = &self.cached_binary_path {
-            return Ok(cached.clone());
+        // Check for updates if binary is cached and enough time has passed
+        if let Some(cached) = self.cached_binary_path.clone() {
+            if self.should_check_for_update() {
+                self.check_and_update_binary(&cached).ok();
+                self.last_update_check = Some(SystemTime::now());
+            }
+
+            // If update deleted binary, cached_binary_path will be None, continue to download
+            if self.cached_binary_path.is_some() {
+                return Ok(cached);
+            }
         }
 
         const PROXY_REPO: &str = "kjanat/bun-docs-mcp-proxy";
@@ -144,6 +223,7 @@ impl zed::Extension for BunDocsMcpExtension {
     fn new() -> Self {
         Self {
             cached_binary_path: None,
+            last_update_check: None,
         }
     }
 
@@ -284,5 +364,61 @@ mod tests {
                 "Archive should have valid extension"
             );
         }
+    }
+
+    #[test]
+    fn test_version_parsing() {
+        // Test parsing version output format "bun-docs-mcp-proxy 0.1.2"
+        let version_output = "bun-docs-mcp-proxy 0.1.2";
+        let version = version_output.trim().split_whitespace().last().unwrap();
+        assert_eq!(version, "0.1.2");
+
+        // Test with just version number
+        let version_output = "0.1.2";
+        let version = version_output.trim().split_whitespace().last().unwrap();
+        assert_eq!(version, "0.1.2");
+
+        // Test with v prefix
+        let version_output = "bun-docs-mcp-proxy v0.1.2";
+        let version = version_output.trim().split_whitespace().last().unwrap();
+        assert_eq!(version, "v0.1.2");
+    }
+
+    #[test]
+    fn test_version_comparison() {
+        // Test version comparison with v prefix stripping
+        let v1 = "v0.1.2".trim_start_matches('v');
+        let v2 = "0.1.2".trim_start_matches('v');
+        assert_eq!(v1, v2);
+
+        let v1 = "0.1.2".trim_start_matches('v');
+        let v2 = "0.1.2".trim_start_matches('v');
+        assert_eq!(v1, v2);
+
+        let v1 = "v0.1.2".trim_start_matches('v');
+        let v2 = "0.1.3".trim_start_matches('v');
+        assert_ne!(v1, v2);
+    }
+
+    #[test]
+    fn test_should_check_for_update() {
+        let mut ext = BunDocsMcpExtension {
+            cached_binary_path: None,
+            last_update_check: None,
+        };
+
+        // Should check when never checked before
+        assert!(ext.should_check_for_update());
+
+        // Should not check immediately after checking
+        ext.last_update_check = Some(SystemTime::now());
+        assert!(!ext.should_check_for_update());
+
+        // Should check after 1 day
+        let one_day_ago = SystemTime::now()
+            .checked_sub(std::time::Duration::from_secs(86400))
+            .unwrap();
+        ext.last_update_check = Some(one_day_ago);
+        assert!(ext.should_check_for_update());
     }
 }

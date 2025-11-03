@@ -168,19 +168,29 @@ For detailed architecture information, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ### Binary downloaded but won't run
 
-**Verify binary**:
+**Find the binary location**:
+
+The extension stores the binary in Zed's extension work directory. The exact path varies by platform:
+
+- **Linux**: `~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/`
+- **macOS**: `~/Library/Application Support/Zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/`
+- **Windows**: `%APPDATA%\Zed\extensions\work\bun-docs-mcp\bun-docs-mcp-proxy\`
+
+**Verify binary exists** (Linux/macOS):
 
 ```bash
 ls -lh ~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/
 # Should show: bun-docs-mcp-proxy (executable)
 ```
 
-**Test manually**:
+**Test manually** (Linux/macOS):
 
 ```bash
 ~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/bun-docs-mcp-proxy <<< '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 # Should return: {"jsonrpc":"2.0","id":1,"result":{"tools":[...]}}
 ```
+
+> **Note**: Replace paths with your platform-specific location from above.
 
 ## Why Rust?
 

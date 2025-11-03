@@ -122,6 +122,12 @@ impl BunDocsMcpExtension {
 
     fn ensure_binary(&mut self) -> Result<String, String> {
         // Check for updates if binary is cached and enough time has passed
+        //
+        // SAFETY NOTE: This update logic has a theoretical race condition where
+        // check_and_update_binary() may delete the binary and clear cached_binary_path,
+        // but another thread could read the stale path before the deletion completes.
+        // However, Zed extensions run in single-threaded WASM, so this is not a practical
+        // concern. If this code is adapted for multi-threaded use, proper locking is needed.
         if self.cached_binary_path.is_some() {
             if self.should_check_for_update() {
                 // Clone only when needed for update check (avoids clone on every call)
@@ -462,5 +468,61 @@ mod tests {
             .unwrap();
         ext.last_update_check = Some(interval_ago);
         assert!(ext.should_check_for_update());
+    }
+
+    #[test]
+    fn test_version_parsing_edge_cases() {
+        // Test malformed version output (empty string)
+        let version_output = "";
+        assert_eq!(version_output.trim().split_whitespace().last(), None);
+
+        // Test malformed version output (whitespace only)
+        let version_output = "   ";
+        assert_eq!(version_output.trim().split_whitespace().last(), None);
+
+        // Test version output with multiple spaces
+        let version_output = "bun-docs-mcp-proxy    0.1.2";
+        let version = version_output.trim().split_whitespace().last().unwrap();
+        assert_eq!(version, "0.1.2");
+
+        // Test version with newlines
+        let version_output = "bun-docs-mcp-proxy 0.1.2\n";
+        let version = version_output.trim().split_whitespace().last().unwrap();
+        assert_eq!(version, "0.1.2");
+    }
+
+    #[test]
+    fn test_semver_parsing_edge_cases() {
+        // Test invalid semver strings gracefully fail
+        assert!(Version::parse("not-a-version").is_err());
+        assert!(Version::parse("1.2").is_err()); // Missing patch
+        assert!(Version::parse("1.2.3.4").is_err()); // Too many components
+
+        // Test pre-release versions work correctly
+        let v1 = Version::parse("0.1.2").unwrap();
+        let v2 = Version::parse("0.1.3-beta").unwrap();
+        assert!(v2 > v1, "0.1.3-beta should be greater than 0.1.2");
+
+        let v1 = Version::parse("0.1.3-alpha").unwrap();
+        let v2 = Version::parse("0.1.3-beta").unwrap();
+        assert!(v2 > v1, "beta comes after alpha");
+    }
+
+    #[test]
+    fn test_version_comparison_edge_cases() {
+        // Test major version takes precedence
+        let v1 = Version::parse("0.1.10").unwrap();
+        let v2 = Version::parse("1.0.0").unwrap();
+        assert!(v2 > v1, "1.0.0 should be greater than 0.1.10");
+
+        // Test minor version takes precedence over patch
+        let v1 = Version::parse("0.1.99").unwrap();
+        let v2 = Version::parse("0.2.0").unwrap();
+        assert!(v2 > v1, "0.2.0 should be greater than 0.1.99");
+
+        // Test large version numbers
+        let v1 = Version::parse("0.999.999").unwrap();
+        let v2 = Version::parse("1.0.0").unwrap();
+        assert!(v2 > v1);
     }
 }

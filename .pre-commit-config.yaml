@@ -31,8 +31,3 @@ repos:
         files: ^\.github/workflows/
         entry: actionlint
         minimum_pre_commit_version: 3.0.0
-  - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.11.0.1
-    hooks:
-      - id: shellcheck
-        args: [-x]

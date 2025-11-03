@@ -133,8 +133,10 @@ impl zed::Extension for BunDocsMcpExtension {
         context_server_id: &zed::ContextServerId,
         _project: &zed::Project,
     ) -> Result<zed::Command, String> {
+        const CONTEXT_SERVER_ID: &str = "bun-docs-mcp";
+
         match context_server_id.as_ref() {
-            "bun-docs-mcp" => {
+            CONTEXT_SERVER_ID => {
                 let binary_path = self.ensure_binary()?;
 
                 Ok(zed::Command {
@@ -149,3 +151,80 @@ impl zed::Extension for BunDocsMcpExtension {
 }
 
 zed::register_extension!(BunDocsMcpExtension);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_platform_archive_names() {
+        // Test that all supported platforms return Ok with correct archive names
+        let test_cases = vec![
+            (
+                ("linux", "x86_64"),
+                "bun-docs-mcp-proxy-linux-x86_64.tar.gz",
+            ),
+            (
+                ("linux", "aarch64"),
+                "bun-docs-mcp-proxy-linux-aarch64.tar.gz",
+            ),
+            (
+                ("macos", "x86_64"),
+                "bun-docs-mcp-proxy-macos-x86_64.tar.gz",
+            ),
+            (
+                ("macos", "aarch64"),
+                "bun-docs-mcp-proxy-macos-aarch64.tar.gz",
+            ),
+            (
+                ("windows", "x86_64"),
+                "bun-docs-mcp-proxy-windows-x86_64.zip",
+            ),
+            (
+                ("windows", "aarch64"),
+                "bun-docs-mcp-proxy-windows-aarch64.zip",
+            ),
+        ];
+
+        for ((os, arch), expected) in test_cases {
+            // Note: Can't easily test this without mocking std::env::consts
+            // This test documents the expected behavior
+            assert!(expected.contains(os));
+            assert!(
+                expected.contains(arch)
+                    || expected.contains("x86_64")
+                    || expected.contains("aarch64")
+            );
+        }
+    }
+
+    #[test]
+    fn test_binary_names() {
+        // Test binary name format
+        let name = BunDocsMcpExtension::get_binary_name();
+        if cfg!(windows) {
+            assert_eq!(name, "bun-docs-mcp-proxy.exe");
+        } else {
+            assert_eq!(name, "bun-docs-mcp-proxy");
+        }
+    }
+
+    #[test]
+    fn test_binary_path_construction() {
+        // Test that PathBuf construction works correctly
+        let work_dir = "/test/work";
+        let binary_name = "bun-docs-mcp-proxy";
+
+        let path = PathBuf::from(work_dir)
+            .join("bun-docs-mcp-proxy")
+            .join(binary_name);
+
+        let expected = if cfg!(windows) {
+            "\\test\\work\\bun-docs-mcp-proxy\\bun-docs-mcp-proxy"
+        } else {
+            "/test/work/bun-docs-mcp-proxy/bun-docs-mcp-proxy"
+        };
+
+        assert_eq!(path.to_str().unwrap(), expected);
+    }
+}

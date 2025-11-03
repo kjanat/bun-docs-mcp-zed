@@ -6,16 +6,20 @@ struct BunDocsMcpExtension {
 }
 
 impl BunDocsMcpExtension {
-    fn get_platform_archive_name() -> &'static str {
+    fn get_platform_archive_name() -> Result<&'static str, String> {
         // Match the GitHub release asset names
         match (std::env::consts::OS, std::env::consts::ARCH) {
-            ("linux", "x86_64") => "bun-docs-mcp-proxy-linux-x86_64.tar.gz",
-            ("linux", "aarch64") => "bun-docs-mcp-proxy-linux-aarch64.tar.gz",
-            ("macos", "x86_64") => "bun-docs-mcp-proxy-macos-x86_64.tar.gz",
-            ("macos", "aarch64") => "bun-docs-mcp-proxy-macos-aarch64.tar.gz",
-            ("windows", "x86_64") => "bun-docs-mcp-proxy-windows-x86_64.zip",
-            ("windows", "aarch64") => "bun-docs-mcp-proxy-windows-aarch64.zip",
-            _ => "bun-docs-mcp-proxy-linux-x86_64.tar.gz", // Default fallback
+            ("linux", "x86_64") => Ok("bun-docs-mcp-proxy-linux-x86_64.tar.gz"),
+            ("linux", "aarch64") => Ok("bun-docs-mcp-proxy-linux-aarch64.tar.gz"),
+            ("macos", "x86_64") => Ok("bun-docs-mcp-proxy-macos-x86_64.tar.gz"),
+            ("macos", "aarch64") => Ok("bun-docs-mcp-proxy-macos-aarch64.tar.gz"),
+            ("windows", "x86_64") => Ok("bun-docs-mcp-proxy-windows-x86_64.zip"),
+            ("windows", "aarch64") => Ok("bun-docs-mcp-proxy-windows-aarch64.zip"),
+            _ => Err(format!(
+                "Unsupported platform: {} {} - please file an issue at https://github.com/kjanat/bun-docs-mcp-zed/issues",
+                std::env::consts::OS,
+                std::env::consts::ARCH
+            )),
         }
     }
 
@@ -65,7 +69,7 @@ impl BunDocsMcpExtension {
         .map_err(|e| format!("Failed to get latest release: {}", e))?;
 
         // Find the asset for our platform
-        let archive_name = Self::get_platform_archive_name();
+        let archive_name = Self::get_platform_archive_name()?;
         let asset = release
             .assets
             .iter()
@@ -86,8 +90,8 @@ impl BunDocsMcpExtension {
 
         // Make it executable (Unix platforms)
         #[cfg(unix)]
-        zed::make_file_executable(&binary_name)
-            .map_err(|e| format!("Failed to make binary executable: {}", e))?;
+        zed::make_file_executable(&binary_path)
+            .map_err(|e| format!("Failed to make {} executable: {}", binary_path, e))?;
 
         self.cached_binary_path = Some(binary_path.clone());
         Ok(binary_path)

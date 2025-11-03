@@ -208,22 +208,22 @@ In your PR, do the following:
 
 1. Add your extension as a Git submodule within the `extensions/` directory
 
-    ```sh
-    git submodule add https://github.com/kjanat/bun-docs-mcp-zed.git extensions/bun-docs-mcp
-    git add extensions/bun-docs-mcp
-    ```
+   ```sh
+   git submodule add https://github.com/kjanat/bun-docs-mcp-zed.git extensions/bun-docs-mcp
+   git add extensions/bun-docs-mcp
+   ```
 
-    > All extension submodules must use HTTPS URLs and not SSH URLS (`git@github.com`).
+   > All extension submodules must use HTTPS URLs and not SSH URLS (`git@github.com`).
 
 2. Add a new entry to the top-level `extensions.toml` file containing your extension:
 
-    ```toml
-    [bun-docs-mcp]
-    submodule = "extensions/bun-docs-mcp"
-    version = "0.0.2"
-    ```
+   ```toml
+   [bun-docs-mcp]
+   submodule = "extensions/bun-docs-mcp"
+   version = "0.0.2"
+   ```
 
-    > If your extension is in a subdirectory within the submodule you can use the `path` field to point to where the extension resides.
+   > If your extension is in a subdirectory within the submodule you can use the `path` field to point to where the extension resides.
 
 3. Run `pnpm sort-extensions` to ensure `extensions.toml` and `.gitmodules` are sorted
 
@@ -719,8 +719,8 @@ Here's a basic database-backed REST API using Bun's router with zero dependencie
   import type { Post } from "./types.ts";
   import { Database } from "bun:sqlite";
 
-  const db = new Database("posts.db");
-  db.exec(`     CREATE TABLE IF NOT EXISTS posts (
+const db = new Database("posts.db");
+db.exec(`     CREATE TABLE IF NOT EXISTS posts (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       content TEXT NOT NULL,
@@ -728,14 +728,14 @@ Here's a basic database-backed REST API using Bun's router with zero dependencie
     )
   `);
 
-  Bun.serve({
-    routes: {
-      // List posts
-      "/api/posts": {
-        GET: () => {
-          const posts = db.query("SELECT \* FROM posts").all();
-          return Response.json(posts);
-        },
+Bun.serve({
+routes: {
+// List posts
+"/api/posts": {
+GET: () => {
+const posts = db.query("SELECT \* FROM posts").all();
+return Response.json(posts);
+},
 
         // Create post
         POST: async (req) => {
@@ -769,7 +769,9 @@ Here's a basic database-backed REST API using Bun's router with zero dependencie
       console.error(error);
       return new Response("Internal Server Error", { status: 500 });
     },
-  });
+
+});
+
 ````
 
 ```ts types.ts icon="/icons/typescript.svg" theme={"theme":{"light":"github-light","dark":"dracula"}}

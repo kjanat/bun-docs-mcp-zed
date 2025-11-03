@@ -96,32 +96,26 @@ Show me Bun.spawn examples
 
 All platforms auto-detected and supported:
 
-| Platform | Binary | Size |
-|----------|--------|------|
-| **Linux x86_64** | `bun-docs-mcp-proxy-linux-x86_64.tar.gz` | 1.3 MB |
-| **Linux ARM64** | `bun-docs-mcp-proxy-linux-aarch64.tar.gz` | 1.25 MB |
-| **macOS Intel** | `bun-docs-mcp-proxy-macos-x86_64.tar.gz` | 1.19 MB |
+| Platform                | Binary                                    | Size    |
+| ----------------------- | ----------------------------------------- | ------- |
+| **Linux x86_64**        | `bun-docs-mcp-proxy-linux-x86_64.tar.gz`  | 1.3 MB  |
+| **Linux ARM64**         | `bun-docs-mcp-proxy-linux-aarch64.tar.gz` | 1.25 MB |
+| **macOS Intel**         | `bun-docs-mcp-proxy-macos-x86_64.tar.gz`  | 1.19 MB |
 | **macOS Apple Silicon** | `bun-docs-mcp-proxy-macos-aarch64.tar.gz` | 1.13 MB |
-| **Windows x86_64** | `bun-docs-mcp-proxy-windows-x86_64.zip` | 1.09 MB |
-| **Windows ARM64** | `bun-docs-mcp-proxy-windows-aarch64.zip` | 1.04 MB |
+| **Windows x86_64**      | `bun-docs-mcp-proxy-windows-x86_64.zip`   | 1.09 MB |
+| **Windows ARM64**       | `bun-docs-mcp-proxy-windows-aarch64.zip`  | 1.04 MB |
 
 Static Linux builds (musl) also available.
 
 ## Performance
 
-| Metric | Value |
-|--------|-------|
-| **First Use** | ~2-3 seconds (one-time download) |
-| **Subsequent** | ~4ms startup (instant!) |
-| **Binary Size** | 2.7 MB (vs ~50 MB with Node.js) |
-| **Memory** | ~2-5 MB (vs ~30-50 MB with Node.js/Bun) |
-| **Dependencies** | None (standalone binary) |
-
-**vs. TypeScript Implementation**:
-- 95% smaller
-- 50x faster startup
-- 10x less memory
-- No runtime dependencies
+| Metric           | Value                                   |
+| ---------------- | --------------------------------------- |
+| **First Use**    | ~2-3 seconds (one-time download)        |
+| **Subsequent**   | ~4ms startup (instant!)                 |
+| **Binary Size**  | 2.7 MB                       |
+| **Memory**       | ~2-5 MB                      |
+| **Dependencies** | None (standalone binary)     |
 
 ## Development
 
@@ -133,7 +127,7 @@ bun-docs-mcp-zed/
 ├── Cargo.toml          # Rust build configuration
 ├── src/
 │   └── lib.rs          # Extension (auto-downloads proxy binary)
-├── docs/               # Research & architecture docs
+├── ARCHITECTURE.md     # Technical architecture
 └── README.md           # This file
 ```
 
@@ -168,7 +162,7 @@ cargo build --release --lib
 **API Endpoint**: `https://bun.com/docs/mcp`
 **Binary Source**: Auto-downloaded from [GitHub Releases](https://github.com/kjanat/bun-docs-mcp-proxy/releases)
 
-For detailed protocol analysis and architecture decisions, see [`docs/`](./docs/).
+For detailed architecture information, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ## Troubleshooting
 
@@ -177,6 +171,7 @@ For detailed protocol analysis and architecture decisions, see [`docs/`](./docs/
 **Check Zed log**: `Cmd/Ctrl+Shift+P` → "zed: open log"
 
 **Common issues**:
+
 - First use takes 2-3 seconds (downloading binary)
 - Network issues prevent download → Check internet connection
 - Binary not for your platform → Check supported platforms above
@@ -184,26 +179,29 @@ For detailed protocol analysis and architecture decisions, see [`docs/`](./docs/
 ### Binary downloaded but won't run
 
 **Verify binary**:
+
 ```bash
 ls -lh ~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/
 # Should show: bun-docs-mcp-proxy (executable)
 ```
 
 **Test manually**:
+
 ```bash
 ~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/bun-docs-mcp-proxy <<< '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
 # Should return: {"jsonrpc":"2.0","id":1,"result":{"tools":[...]}}
 ```
 
-## Migration from TypeScript
+## Why Rust?
 
-This extension was migrated from TypeScript/Node.js to pure Rust for:
-- **Performance**: 50x faster startup
-- **Size**: 95% smaller footprint
-- **Dependencies**: No Node.js/Bun required
-- **Reliability**: Compile-time safety
+This extension is implemented in pure Rust for:
 
-See [`docs/SUMMARY.md`](./docs/SUMMARY.md) for complete migration details.
+- **Performance**: 4ms startup time
+- **Size**: Compact 2.7 MB binary
+- **Dependencies**: Zero runtime dependencies
+- **Reliability**: Compile-time safety guarantees
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for migration history and technical details.
 
 ## Contributing
 

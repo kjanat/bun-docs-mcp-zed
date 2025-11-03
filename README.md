@@ -55,32 +55,21 @@ Show me Bun.spawn examples
 
 ## Architecture
 
-```
-┌────────────────────────────────┐
-│  Zed Extension (WASM)          │
-│  - Auto-downloads binary       │
-│  - Platform detection          │
-│  - Size: 155 KB                │
-└───────────┬────────────────────┘
-            │ downloads from
-            ▼
-┌────────────────────────────────┐
-│  GitHub Releases               │
-│  kjanat/bun-docs-mcp-proxy     │
-│  - 8 platforms supported       │
-│  - ~1.3 MB compressed          │
-└───────────┬────────────────────┘
-            │ extracts to /work/
-            ▼
-┌────────────────────────────────┐
-│  Rust MCP Proxy (Native)       │
-│  - stdio ↔ HTTP ↔ SSE          │
-│  - 2.7 MB extracted            │
-│  - 4ms startup                 │
-└───────────┬────────────────────┘
-            │ queries
-            ▼
-   https://bun.com/docs/mcp
+```mermaid
+flowchart TD
+    A["🔧 Zed Extension (WASM)<br/>• Auto-downloads binary<br/>• Platform detection<br/>• Daily update checks<br/>• Size: 171 KB"]
+    B["📦 GitHub Releases<br/>kjanat/bun-docs-mcp-proxy<br/>• 6 platforms supported<br/>• ~1.3 MB compressed"]
+    C["⚙️ Rust MCP Proxy (Native)<br/>• stdio ↔ HTTP ↔ SSE<br/>• 2.7 MB extracted<br/>• 4ms startup"]
+    D["🌐 Bun Docs API<br/>https://bun.com/docs/mcp"]
+
+    A -->|"downloads from"| B
+    B -->|"extracts to /work/"| C
+    C -->|"queries"| D
+
+    style A fill:#e1f5ff
+    style B fill:#fff4e6
+    style C fill:#e8f5e9
+    style D fill:#f3e5f5
 ```
 
 ### How It Works

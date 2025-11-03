@@ -1,3 +1,4 @@
+use semver::Version;
 use std::fs;
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -91,11 +92,19 @@ impl BunDocsMcpExtension {
             return Ok(()); // Network error, skip update
         };
 
-        // Compare versions (strip 'v' prefix if present)
-        let latest_version = release.version.trim_start_matches('v');
-        let current_version_stripped = current_version.trim_start_matches('v');
+        // Compare versions using proper semantic versioning
+        let latest_version_str = release.version.trim_start_matches('v');
+        let current_version_str = current_version.trim_start_matches('v');
 
-        if latest_version != current_version_stripped {
+        // Parse versions, skip update check if parsing fails
+        let Ok(latest_version) = Version::parse(latest_version_str) else {
+            return Ok(());
+        };
+        let Ok(current_version) = Version::parse(current_version_str) else {
+            return Ok(());
+        };
+
+        if latest_version > current_version {
             // Delete old binary to trigger re-download on next call
             fs::remove_file(binary_path).ok();
             self.cached_binary_path = None;
@@ -122,8 +131,8 @@ impl BunDocsMcpExtension {
         const PROXY_DIR: &str = "bun-docs-mcp-proxy";
 
         // Get work directory (where extension runs)
-        let work_dir = std::env::var("PWD")
-            .or_else(|_| std::env::current_dir().map(|p| p.to_string_lossy().to_string()))
+        let work_dir = std::env::current_dir()
+            .map(|p| p.to_string_lossy().to_string())
             .map_err(|e| format!("Failed to get work directory: {}", e))?;
 
         let binary_name = Self::get_binary_name();
@@ -308,8 +317,9 @@ mod tests {
     }
 
     #[test]
+    #[cfg(windows)]
     fn test_binary_path_construction() {
-        // Test that PathBuf construction works correctly
+        // Test that PathBuf construction works correctly on Windows
         let work_dir = "/test/work";
         let binary_name = "bun-docs-mcp-proxy";
 
@@ -317,13 +327,27 @@ mod tests {
             .join("bun-docs-mcp-proxy")
             .join(binary_name);
 
-        let expected = if cfg!(windows) {
+        assert_eq!(
+            path.to_str().unwrap(),
             "\\test\\work\\bun-docs-mcp-proxy\\bun-docs-mcp-proxy"
-        } else {
-            "/test/work/bun-docs-mcp-proxy/bun-docs-mcp-proxy"
-        };
+        );
+    }
 
-        assert_eq!(path.to_str().unwrap(), expected);
+    #[test]
+    #[cfg(not(windows))]
+    fn test_binary_path_construction() {
+        // Test that PathBuf construction works correctly on Unix platforms
+        let work_dir = "/test/work";
+        let binary_name = "bun-docs-mcp-proxy";
+
+        let path = PathBuf::from(work_dir)
+            .join("bun-docs-mcp-proxy")
+            .join(binary_name);
+
+        assert_eq!(
+            path.to_str().unwrap(),
+            "/test/work/bun-docs-mcp-proxy/bun-docs-mcp-proxy"
+        );
     }
 
     #[test]
@@ -385,18 +409,24 @@ mod tests {
 
     #[test]
     fn test_version_comparison() {
-        // Test version comparison with v prefix stripping
-        let v1 = "v0.1.2".trim_start_matches('v');
-        let v2 = "0.1.2".trim_start_matches('v');
+        // Test proper semantic version comparison
+        let v1 = Version::parse("0.1.2").unwrap();
+        let v2 = Version::parse("0.1.2").unwrap();
         assert_eq!(v1, v2);
 
-        let v1 = "0.1.2".trim_start_matches('v');
-        let v2 = "0.1.2".trim_start_matches('v');
-        assert_eq!(v1, v2);
+        let v1 = Version::parse("0.1.2").unwrap();
+        let v2 = Version::parse("0.1.3").unwrap();
+        assert!(v2 > v1);
 
+        // Test that version comparison handles double digits correctly
+        let v1 = Version::parse("0.1.9").unwrap();
+        let v2 = Version::parse("0.1.10").unwrap();
+        assert!(v2 > v1, "0.1.10 should be greater than 0.1.9");
+
+        // Test v prefix stripping before parsing
         let v1 = "v0.1.2".trim_start_matches('v');
-        let v2 = "0.1.3".trim_start_matches('v');
-        assert_ne!(v1, v2);
+        let v2 = "0.1.2".trim_start_matches('v');
+        assert_eq!(Version::parse(v1).unwrap(), Version::parse(v2).unwrap());
     }
 
     #[test]

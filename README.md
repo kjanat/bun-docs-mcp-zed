@@ -1,199 +1,227 @@
-# Bun Docs MCP Extension for Zed
+# Bun Docs MCP for Zed
 
-MCP server integration for searching [Bun documentation](https://bun.sh) directly in Zed editor.
+Search Bun documentation directly in Zed using the Model Context Protocol (MCP).
 
-## Architecture
-
-This extension bridges Zed's stdio-based MCP client with the Bun HTTP MCP server:
-
-```mermaid
-graph LR
-    A["Zed Editor (stdio)"] <-- "JSON-RPC over stdio" --> B["proxy.ts (Bun > Node)"]
-    B <-- "HTTP POST requests" --> C["https://bun.com/docs/mcp (HTTP)"]
-    C <-- "SSE responses" --> B
-    B <-- "JSON-RPC over stdio" --> A
-```
-
-The `proxy.ts` script translates between stdio and HTTP transports,
-allowing Zed to communicate with the Bun documentation server.
+**Pure Rust implementation** with zero runtime dependencies.
 
 ## Features
 
-- **SearchBun Tool**: Search across the Bun knowledge base
-- Direct access to API references, guides, and code examples
-- Contextual content with direct links to documentation pages
-- Automatic HTTP-to-stdio protocol translation
-
-## Requirements
-
-- **Bun**: Required\* to run the HTTP-to-stdio proxy ([bun.sh](https://bun.sh))
-  - \*Uses node.js as fallback.
-- **Rust**: Required for building the extension (via rustup)
+- 🔍 **Search Bun Docs** - Query Bun documentation from Zed Assistant
+- ⚡ **Pure Rust** - Native binary with automatic download from GitHub Releases
+- 🪶 **Lightweight** - 1.3 MB compressed, 2.7 MB extracted
+- 🚀 **Fast** - 4ms startup time
+- 🌍 **Multi-Platform** - Supports Linux, macOS, Windows (x86_64/ARM64)
+- 🔄 **Auto-Update** - Downloads latest binary on installation
 
 ## Installation
 
-### Dev Installation (Local Development)
-
-1. Install [Bun][bun.sh] (v1.0 or higher)
-2. Install Rust via [rustup][rustup]
-3. Clone this repository
-4. Build the extension: `cargo build --target wasm32-wasip2 --release`
-5. In Zed, open the Extensions page
-6. Click `Install Dev Extension` (or use `zed::InstallDevExtension` action)
-7. Select the `bun-docs-mcp-zed` directory
-
-### Published Installation
-
-Once published to the Zed extension registry:
+### From Zed Extensions (Coming Soon)
 
 1. Open Zed
-2. Go to Extensions (<kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd>)
-3. Search for "Bun Docs MCP"
+2. <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> (macOS) or  
+   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> (Linux/Windows) → Extensions
+3. Search: "Bun Docs MCP"
 4. Click Install
+
+### As Dev Extension (Local Development)
+
+```bash
+# Clone this repository
+git clone https://github.com/kjanat/bun-docs-mcp-zed
+cd bun-docs-mcp-zed
+
+# Install in Zed
+# Press Cmd+Shift+P (macOS) or Ctrl+Shift+P (Linux/Windows)
+# Type: "zed: install dev extension"
+# Select this directory
+```
+
+**No build required!** The extension auto-downloads the Rust binary from GitHub Releases on first use.
 
 ## Usage
 
-After installation, the Bun documentation MCP server will be available in Zed. You can:
-
-1. Use the `SearchBun` tool via the assistant panel
-2. Ask questions about Bun functionality
-3. Look up API references and examples
+1. **Open Assistant**:  
+   <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> (macOS) or  
+   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> (Linux/Windows)
+2. **Enable Context**: Click context dropdown → Enable "bun-docs-mcp"
+3. **Ask Questions**: "How does Bun.serve work?"
 
 ### Example Queries
 
-- "How do I use Bun's HTTP server?"
-- "Show me examples of `Bun.serve`"
-- "What are Bun's testing features?"
-- "How to configure `bun.lockb`?"
+```
+How does Bun.serve work?
+Explain Bun's WebSocket support
+What are Bun's TCP APIs?
+How do I use Bun.file?
+Show me Bun.spawn examples
+```
 
-## MCP Server Details
+## Architecture
 
-- **Name**: Bun
-- **Version**: 0.0.2
-- **Transport**: HTTP
-- **Endpoint**: `https://bun.com/docs/mcp`
+```mermaid
+flowchart TD
+    A["🔧 Zed Extension (WASM)<br/>• Auto-downloads binary<br/>• Platform detection<br/>• Daily update checks<br/>• Size: 171 KB"]
+    B["📦 GitHub Releases<br/>kjanat/bun-docs-mcp-proxy<br/>• 6 platforms supported<br/>• ~1.3 MB compressed"]
+    C["⚙️ Rust MCP Proxy (Native)<br/>• stdio ↔ HTTP ↔ SSE<br/>• 2.7 MB extracted<br/>• 4ms startup"]
+    D["🌐 Bun Docs API<br/>https://bun.com/docs/mcp"]
 
-### Available Tools
+    A -->|"downloads from"| B
+    B -->|"extracts to /work/"| C
+    C -->|"queries"| D
+```
 
-#### SearchBun
+### How It Works
 
-Search across the Bun knowledge base to find relevant information, code examples, API references, and guides.
+1. **Extension**: Zed loads the WASM extension from this repo
+2. **Auto-Download**: On first use, downloads platform-specific binary from [GitHub Releases](https://github.com/kjanat/bun-docs-mcp-proxy/releases)
+3. **Proxy Binary**: Rust binary translates between:
+   - Zed's stdin/stdout (JSON-RPC)
+   - Bun Docs HTTP API (SSE responses)
+4. **Search**: Queries Bun documentation and returns results
 
-**Parameters:**
+## Supported Platforms
 
-- `query` (string, required): A query to search the content with
+All platforms auto-detected and supported:
 
-**Returns:**
+| Platform                | Binary                                    | Size    |
+| ----------------------- | ----------------------------------------- | ------- |
+| **Linux x86_64**        | `bun-docs-mcp-proxy-linux-x86_64.tar.gz`  | 1.3 MB  |
+| **Linux ARM64**         | `bun-docs-mcp-proxy-linux-aarch64.tar.gz` | 1.25 MB |
+| **macOS Intel**         | `bun-docs-mcp-proxy-macos-x86_64.tar.gz`  | 1.19 MB |
+| **macOS Apple Silicon** | `bun-docs-mcp-proxy-macos-aarch64.tar.gz` | 1.13 MB |
+| **Windows x86_64**      | `bun-docs-mcp-proxy-windows-x86_64.zip`   | 1.09 MB |
+| **Windows ARM64**       | `bun-docs-mcp-proxy-windows-aarch64.zip`  | 1.04 MB |
 
-- Contextual content with titles
-- Direct links to documentation pages
-- Relevant code examples
+Static Linux builds (musl) also available.
+
+## Performance
+
+| Metric           | Value                                   |
+| ---------------- | --------------------------------------- |
+| **First Use**    | ~2-3 seconds (one-time download)        |
+| **Subsequent**   | ~4ms startup (instant!)                 |
+| **Binary Size**  | 2.7 MB                       |
+| **Memory**       | ~2-5 MB                      |
+| **Dependencies** | None (standalone binary)     |
 
 ## Development
 
 ### Project Structure
 
-```sh
+```
 bun-docs-mcp-zed/
-├── extension.toml      # Extension metadata & context server registration
+├── extension.toml      # Zed extension metadata
 ├── Cargo.toml          # Rust build configuration
 ├── src/
-│   └── lib.rs          # Extension implementation (context_server_command)
-├── proxy.ts            # Bun-native HTTP-to-stdio bridge (SSE support)
-├── LICENSE             # MIT license
+│   └── lib.rs          # Extension (auto-downloads proxy binary)
+├── ARCHITECTURE.md     # Technical architecture
 └── README.md           # This file
 ```
 
+**Proxy implementation**: Separate repo at [kjanat/bun-docs-mcp-proxy](https://github.com/kjanat/bun-docs-mcp-proxy)
+
 ### Building
 
-```sh
-# Add WASM target (first time only)
-rustup target add wasm32-wasip2
+```bash
+# Build extension WASM
+cargo build --release --lib
 
-# Build the WASM extension
-cargo build --target wasm32-wasip2 --release
-
-# Build the proxy.js file
-bun build.ts
-# Or run this if you don't have bun installed:
-# npx -y bun build.ts
+# Extension auto-downloads proxy binary from GitHub
+# No need to build proxy locally!
 ```
 
-#### Test the proxy independently
+### Testing
 
-```sh
-echo '
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "method": "initialize",
-  "params": {
-    "protocolVersion": "2024-11-05",
-    "capabilities": {},
-    "clientInfo": {
-      "name": "cli-test",
-      "version": "0.1.0"
-    }
-  }
-}
-{
-  "jsonrpc": "2.0",
-  "id": 2,
-  "method": "tools/call",
-  "params": {
-    "name": "SearchBun",
-    "arguments": {
-      "query": "Bun.serve example"
-    }
-  }
-}
-' | jq -c \
-  | node proxy.js \
-  | jq .
+```bash
+# Install as dev extension in Zed
+# Cmd+Shift+P (macOS) or Ctrl+Shift+P (Linux/Windows) → "zed: install dev extension"
+# Select this directory
+
+# Enable in Assistant and test
+# Open Assistant → Enable "bun-docs-mcp"
+# Ask: "How does Bun.serve work?"
 ```
 
-#### Test in Zed
+## Technical Details
 
-Use "Install Dev Extension" from the Extensions page
+**MCP Protocol**: JSON-RPC 2.0 over stdio  
+**Transport**: Server-Sent Events (SSE) over HTTPS  
+**API Endpoint**: `https://bun.com/docs/mcp`  
+**Binary Source**: Auto-downloaded from [GitHub Releases](https://github.com/kjanat/bun-docs-mcp-proxy/releases)
 
-### How It Works
+For detailed architecture information, see [ARCHITECTURE.md](./ARCHITECTURE.md).
 
-1. **Extension Registration**: [`extension.toml`][extension.toml] registers the `bun-docs` context server
-2. **Command Provider**: [`src/lib.rs`][lib.rs] implements `context_server_command` to return the Bun command
-3. **Protocol Bridge**: [`proxy.ts`][proxy.ts] (written in TypeScript, runs on Bun) translates between:
-   - Zed's stdio JSON-RPC messages
-   - HTTP POST requests to `https://bun.com/docs/mcp`
-   - Server-Sent Events (SSE) responses from the Bun server
-4. **Response Handling**: SSE responses are parsed and forwarded back to Zed via stdout
+## Troubleshooting
 
-### Why Bun?
+### Extension won't enable
 
-The proxy is built with Bun's native APIs for several reasons:
+**Check Zed log**:  
+<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (macOS) or  
+<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (Linux/Windows)  
+→ "zed: open log"
 
-- **Dogfooding**: The Bun documentation MCP uses Bun itself! 🐰
-- **Performance**: Bun's native `fetch()` is faster than Node.js http/https modules
-- **Simplicity**: Clean async/await code without callback-based APIs
-- **Native SSE**: Built-in support for parsing Server-Sent Events responses
-- **TypeScript**: First-class TypeScript support without transpilation
+**Common issues**:
+
+- First use takes 2-3 seconds (downloading binary)
+- Network issues prevent download → Check internet connection
+- Binary not for your platform → Check supported platforms above
+
+### Binary downloaded but won't run
+
+**Find the binary location**:
+
+The extension stores the binary in Zed's extension work directory. The exact path varies by platform:
+
+- **Linux**: `~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/`
+- **macOS**: `~/Library/Application Support/Zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/`
+- **Windows**: `%APPDATA%\Zed\extensions\work\bun-docs-mcp\bun-docs-mcp-proxy\`
+
+**Verify binary exists** (Linux/macOS):
+
+```bash
+ls -lh ~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/
+# Should show: bun-docs-mcp-proxy (executable)
+```
+
+**Test manually** (Linux/macOS):
+
+```bash
+~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/bun-docs-mcp-proxy <<< '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+# Should return: {"jsonrpc":"2.0","id":1,"result":{"tools":[...]}}
+```
+
+> **Note**: Replace paths with your platform-specific location from above.
+
+## Why Rust?
+
+This extension is implemented in pure Rust for:
+
+- **Performance**: 4ms startup time
+- **Size**: Compact 2.7 MB binary
+- **Dependencies**: Zero runtime dependencies
+- **Reliability**: Compile-time safety guarantees
+- **Boredom**: Why not...
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for migration history and technical details.
+
+## Contributing
+
+Contributions welcome!
+
+**Proxy implementation**: [kjanat/bun-docs-mcp-proxy](https://github.com/kjanat/bun-docs-mcp-proxy)  
+**Extension**: This repository
 
 ## License
 
-[MIT][license]
+MIT - See [LICENSE](./LICENSE)
 
-## Links
+## Credits
 
-- [Bun Documentation][bun.sh]
-- [Bun MCP Server][bun-mcp]
-- [Zed Extensions Guide][zed-extensions]
+- [Zed Editor](https://zed.dev) - Extensible code editor
+- [Bun](https://bun.sh) - Fast JavaScript runtime
+- [Model Context Protocol](https://modelcontextprotocol.io) - LLM integration standard
+- [Bun Docs MCP Server](https://bun.com/docs/mcp) - Official Bun documentation API
 
-<!-- Link definitions -->
+---
 
-[zed-dev]: https://zed.dev
-[bun.sh]: https://bun.sh
-[bun-mcp]: https://bun.com/docs/mcp
-[zed-extensions]: https://zed.dev/docs/extensions
-[rustup]: https://www.rust-lang.org/tools/install
-[license]: ./LICENSE
-[lib.rs]: ./src/lib.rs
-[extension.toml]: ./extension.toml
-[proxy.ts]: ./proxy.ts
+**Ready to search Bun docs in Zed!** Install the extension and start asking questions. 🚀

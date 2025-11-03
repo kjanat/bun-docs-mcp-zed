@@ -1,7 +1,8 @@
 [package]
 name = "bun-docs-mcp-zed"
-version = "0.0.2"
+version = "0.1.0"
 edition = "2021"
+description = "Bun Docs MCP extension for Zed"
 license = "MIT"
 
 [lib]
@@ -9,4 +10,12 @@ crate-type = ["cdylib"]
 path = "src/lib.rs"
 
 [dependencies]
+semver = "1.0.27"
 zed_extension_api = "0.7.0"
+
+[profile.release]
+opt-level = "z"
+strip = true
+lto = true
+panic = "abort"
+codegen-units = 1

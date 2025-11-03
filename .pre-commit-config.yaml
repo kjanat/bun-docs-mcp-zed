@@ -15,16 +15,14 @@ repos:
     rev: v0.6.39
     hooks:
       - id: tombi-format
+        exclude: ^Cargo\.lock$
       - id: tombi-lint
+        exclude: ^Cargo\.lock$
   - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
     hooks:
       - id: fmt
       - id: cargo-check
-  - repo: https://github.com/biomejs/pre-commit
-    rev: v2.3.2
-    hooks:
-      - id: biome-check
   - repo: local
     hooks:
       - id: actionlint
@@ -35,27 +33,3 @@ repos:
         files: ^\.github/workflows/
         entry: actionlint
         minimum_pre_commit_version: 3.0.0
-      # - id: actionlint-docker
-      #   name: Lint GitHub Actions workflow files
-      #   description: Runs actionlint Docker image to lint GitHub Actions workflow files
-      #   language: docker_image
-      #   types: ["yaml"]
-      #   files: ^\.github/workflows/
-      #   entry: docker.io/rhysd/actionlint:1.7.8
-      # - id: actionlint-system
-      #   name: Lint GitHub Actions workflow files
-      #   description: Runs system-installed actionlint to lint GitHub Actions workflow files
-      #   language: system
-      #   types: ["yaml"]
-      #   files: ^\.github/workflows/
-      #   entry: actionlint
-  - repo: local
-    hooks:
-      - id: bun-build
-        name: Build proxy.js
-        description: Runs `bun run build` to build the project.
-        entry: bun run build
-        language: system
-        files: \.(rs|ts|toml|json)$
-        pass_filenames: false
-        stages: [pre-commit]

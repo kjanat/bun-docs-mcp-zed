@@ -7,4 +7,3 @@ authors = ["Kaj Kowalski <dev@kajkowalski.nl>"]
 repository = "https://github.com/kjanat/bun-docs-mcp-zed"
 
 [context_servers.bun-docs-mcp]
-command = "./proxy-rust.sh"

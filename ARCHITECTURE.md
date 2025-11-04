@@ -52,6 +52,58 @@ cargo build --target wasm32-wasip2 --release
 The binary is downloaded automatically.  
 See: [kjanat/bun-docs-mcp-proxy/releases][releases]
 
+## Auto-Update Mechanism
+
+The extension implements automatic updates with the following design:
+
+### Version-Specific Storage
+
+Binaries are stored in version-specific directories to support seamless updates:
+
+```
+~/.local/share/zed/extensions/work/bun-docs-mcp/
+├── bun-docs-mcp-proxy-v0.1.2/
+│   └── bun-docs-mcp-proxy
+└── bun-docs-mcp-proxy-v0.1.3/  (after update)
+    └── bun-docs-mcp-proxy
+```
+
+This approach ensures:
+- **No Conflicts**: Multiple versions can coexist during updates
+- **Safe Updates**: Old version remains available until new one is verified
+- **Clean State**: Old versions are automatically cleaned up after successful updates
+
+### Update Flow
+
+1. **First Use**: Downloads latest binary from GitHub Releases
+2. **Daily Checks**: Every 24 hours, checks for new releases using GitHub API
+3. **Auto-Download**: When newer version found, downloads on next extension use
+4. **Cleanup**: After successful download, removes old version directories
+5. **No Disruption**: Updates happen transparently without affecting workflow
+
+### Implementation Details
+
+- **Update Interval**: 24 hours (configurable via `UPDATE_CHECK_INTERVAL_SECS`)
+- **Version Comparison**: Uses semantic versioning (`semver` crate)
+- **Error Handling**: Network errors are silently ignored to avoid disrupting users
+- **Cache Management**: In-memory cache of binary path and version to minimize disk I/O
+
+### Publishing Updates
+
+Extension updates are published via GitHub Actions when new tags are pushed:
+
+```bash
+git tag v0.1.2
+git push origin v0.1.2
+```
+
+The [release workflow](.github/workflows/release.yml) automatically:
+1. Builds the WASM extension
+2. Creates a PR to [zed-industries/extensions][zed-extensions]
+3. Updates the extension registry when merged
+
+[zed-extensions]: https://github.com/zed-industries/extensions
+
 ## Migration History
 
 Originally implemented in TypeScript, migrated to pure Rust for:

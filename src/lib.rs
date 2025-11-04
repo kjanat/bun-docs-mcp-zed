@@ -20,6 +20,7 @@ const ARCHIVE_WINDOWS_ARM64: &str = "bun-docs-mcp-proxy-windows-aarch64.zip";
 
 struct BunDocsMcpExtension {
     cached_binary_path: Option<String>,
+    cached_version: Option<String>,
     last_update_check: Option<SystemTime>,
 }
 
@@ -84,6 +85,7 @@ impl BunDocsMcpExtension {
     /// # Returns
     /// - `Ok(String)` - Version string (e.g., "0.1.2")
     /// - `Err(String)` - Error if binary can't be executed or version can't be parsed
+    #[allow(dead_code)]
     fn get_binary_version(binary_path: &str) -> Result<String, String> {
         use std::process::Command;
 
@@ -127,23 +129,64 @@ impl BunDocsMcpExtension {
         }
     }
 
-    /// Checks for a newer binary version and deletes the old one if found.
+    /// Cleans up old binary versions, keeping only the current one.
     ///
-    /// This triggers a re-download on the next `ensure_binary()` call.
-    /// Errors during the update check are intentionally ignored to avoid
-    /// disrupting normal operation.
+    /// Removes version-specific directories that are older than the current version.
+    /// Errors during cleanup are ignored to avoid disrupting normal operation.
     ///
     /// # Arguments
-    /// - `binary_path` - Path to the current binary
+    /// - `work_dir` - The work directory containing version subdirectories
+    /// - `current_version` - The current binary version to keep
+    fn cleanup_old_versions(work_dir: &str, current_version: &str) {
+        const PROXY_DIR_PREFIX: &str = "bun-docs-mcp-proxy-v";
+
+        // Parse current version for comparison
+        let Ok(current) = Version::parse(current_version.trim_start_matches('v')) else {
+            return; // Can't parse current version, skip cleanup
+        };
+
+        // List all entries in work directory
+        let Ok(entries) = fs::read_dir(work_dir) else {
+            return; // Can't read directory, skip cleanup
+        };
+
+        for entry in entries.flatten() {
+            let Ok(name) = entry.file_name().into_string() else {
+                continue;
+            };
+
+            // Check if this is a version directory
+            if !name.starts_with(PROXY_DIR_PREFIX) {
+                continue;
+            }
+
+            // Extract version from directory name
+            let version_str = name.trim_start_matches(PROXY_DIR_PREFIX);
+            let Ok(version) = Version::parse(version_str.trim_start_matches('v')) else {
+                continue; // Can't parse version, skip this directory
+            };
+
+            // Remove if older than current version
+            if version < current {
+                let _ = fs::remove_dir_all(entry.path());
+            }
+        }
+    }
+
+    /// Checks for a newer binary version and triggers cleanup/re-download if found.
+    ///
+    /// This invalidates the cached binary path, triggering a re-download on the next
+    /// `ensure_binary()` call. Old versions are cleaned up after successful update.
+    /// Errors during the update check are intentionally ignored to avoid
+    /// disrupting normal operation.
     ///
     /// # Returns
     /// - `Ok(())` - Check completed (regardless of whether update found)
     /// - `Err(String)` - Only returned if critical error occurs
-    fn check_and_update_binary(&mut self, binary_path: &str) -> Result<(), String> {
-        // Get current binary version
-        let current_version = match Self::get_binary_version(binary_path) {
-            Ok(v) => v,
-            Err(_) => return Ok(()), // Old binary without --version, skip update check
+    fn check_and_update_binary(&mut self) -> Result<(), String> {
+        // Get current binary version from cache
+        let Some(current_version) = &self.cached_version else {
+            return Ok(()); // No cached version, skip update check
         };
 
         // Get latest release from GitHub (non-blocking: ignore errors)
@@ -168,14 +211,14 @@ impl BunDocsMcpExtension {
         let Ok(latest_version) = Version::parse(latest_version_str) else {
             return Ok(());
         };
-        let Ok(current_version) = Version::parse(current_version_str) else {
+        let Ok(current_version_parsed) = Version::parse(current_version_str) else {
             return Ok(());
         };
 
-        if latest_version > current_version {
-            // Delete old binary to trigger re-download on next call
-            fs::remove_file(binary_path).ok();
+        if latest_version > current_version_parsed {
+            // Clear cache to trigger re-download on next call
             self.cached_binary_path = None;
+            self.cached_version = None;
         }
 
         Ok(())
@@ -187,7 +230,9 @@ impl BunDocsMcpExtension {
     /// 1. Returns cached binary path if available
     /// 2. Checks for updates if enough time has passed
     /// 3. Downloads from GitHub Releases if binary doesn't exist
-    /// 4. Extracts archive and makes binary executable (Unix)
+    /// 4. Extracts archive to version-specific directory
+    /// 5. Makes binary executable (Unix)
+    /// 6. Cleans up old versions after successful download
     ///
     /// # Returns
     /// - `Ok(String)` - Absolute path to the binary
@@ -198,74 +243,25 @@ impl BunDocsMcpExtension {
     /// If adapted for multi-threaded use, proper locking is required.
     fn ensure_binary(&mut self) -> Result<String, String> {
         // Check for updates if binary is cached and enough time has passed
-        //
-        // SAFETY NOTE: This update logic has a theoretical race condition where
-        // check_and_update_binary() may delete the binary and clear cached_binary_path,
-        // but another thread could read the stale path before the deletion completes.
-        // However, Zed extensions run in single-threaded WASM, so this is not a practical
-        // concern. If this code is adapted for multi-threaded use, proper locking is needed.
         if self.cached_binary_path.is_some() {
             if self.should_check_for_update() {
-                // Clone only when needed for update check (avoids clone on every call)
-                let cached = self.cached_binary_path.as_ref().unwrap().clone();
-
                 // Update check failures are intentionally ignored to avoid disrupting user workflow.
-                // The extension continues using the existing binary if update check fails due to:
-                // - Network errors (GitHub API unavailable)
-                // - Version parsing failures
-                // - Binary execution errors
-                // This ensures the extension remains usable even with connectivity issues.
-                self.check_and_update_binary(&cached).ok();
+                self.check_and_update_binary().ok();
                 self.last_update_check = Some(SystemTime::now());
             }
 
-            // If update deleted binary, cached_binary_path will be None, continue to download
+            // If update cleared cache, continue to download
             if let Some(cached) = &self.cached_binary_path {
                 return Ok(cached.clone());
             }
         }
 
         const PROXY_REPO: &str = "kjanat/bun-docs-mcp-proxy";
-        const PROXY_DIR: &str = "bun-docs-mcp-proxy";
 
         // Get work directory (where extension runs)
         let work_dir = std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
             .map_err(|e| format!("Failed to get work directory: {}", e))?;
-
-        let binary_name = Self::get_binary_name();
-
-        // Construct binary path using PathBuf for cross-platform compatibility
-        let binary_path = PathBuf::from(&work_dir).join(PROXY_DIR).join(binary_name);
-
-        let binary_path_str = binary_path
-            .to_str()
-            .ok_or_else(|| "Binary path contains invalid UTF-8".to_string())?
-            .to_string();
-
-        // Check if binary already exists and is executable
-        match fs::metadata(&binary_path) {
-            Ok(metadata) => {
-                if metadata.is_file() {
-                    self.cached_binary_path = Some(binary_path_str.clone());
-                    return Ok(binary_path_str);
-                } else {
-                    return Err(format!(
-                        "Binary path exists but is not a file: {}",
-                        binary_path_str
-                    ));
-                }
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                // Binary doesn't exist, proceed with download
-            }
-            Err(e) => {
-                return Err(format!(
-                    "Failed to check binary at {}: {}",
-                    binary_path_str, e
-                ));
-            }
-        }
 
         // Download from GitHub Releases
         let release = zed::latest_github_release(
@@ -290,6 +286,46 @@ impl BunDocsMcpExtension {
                 )
             })?;
 
+        // Version-specific directory name
+        let version = release.version.trim_start_matches('v');
+        let version_dir = format!("bun-docs-mcp-proxy-v{}", version);
+        let binary_name = Self::get_binary_name();
+
+        // Construct binary path using PathBuf for cross-platform compatibility
+        let binary_path = PathBuf::from(&work_dir)
+            .join(&version_dir)
+            .join(binary_name);
+
+        let binary_path_str = binary_path
+            .to_str()
+            .ok_or_else(|| "Binary path contains invalid UTF-8".to_string())?
+            .to_string();
+
+        // Check if binary already exists for this version
+        match fs::metadata(&binary_path) {
+            Ok(metadata) => {
+                if metadata.is_file() {
+                    self.cached_binary_path = Some(binary_path_str.clone());
+                    self.cached_version = Some(version.to_string());
+                    return Ok(binary_path_str);
+                } else {
+                    return Err(format!(
+                        "Binary path exists but is not a file: {}",
+                        binary_path_str
+                    ));
+                }
+            }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                // Binary doesn't exist, proceed with download
+            }
+            Err(e) => {
+                return Err(format!(
+                    "Failed to check binary at {}: {}",
+                    binary_path_str, e
+                ));
+            }
+        }
+
         // Download and extract the archive
         let file_type = if archive_name.ends_with(".zip") {
             zed::DownloadedFileType::Zip
@@ -299,8 +335,8 @@ impl BunDocsMcpExtension {
             zed::DownloadedFileType::Uncompressed
         };
 
-        // Download extracts to current directory
-        zed::download_file(&asset.download_url, PROXY_DIR, file_type).map_err(|e| {
+        // Download extracts to version-specific directory
+        zed::download_file(&asset.download_url, &version_dir, file_type).map_err(|e| {
             format!(
                 "Failed to download {} from {}: {}",
                 archive_name, asset.download_url, e
@@ -320,7 +356,11 @@ impl BunDocsMcpExtension {
         zed::make_file_executable(&binary_path_str)
             .map_err(|e| format!("Failed to make {} executable: {}", binary_path_str, e))?;
 
+        // Cleanup old versions after successful download
+        Self::cleanup_old_versions(&work_dir, version);
+
         self.cached_binary_path = Some(binary_path_str.clone());
+        self.cached_version = Some(version.to_string());
         Ok(binary_path_str)
     }
 }
@@ -329,6 +369,7 @@ impl zed::Extension for BunDocsMcpExtension {
     fn new() -> Self {
         Self {
             cached_binary_path: None,
+            cached_version: None,
             last_update_check: None,
         }
     }
@@ -409,10 +450,12 @@ mod tests {
         } else {
             "/test/work"
         };
+        let version = "0.1.2";
+        let version_dir = format!("bun-docs-mcp-proxy-v{}", version);
         let binary_name = "bun-docs-mcp-proxy";
 
         let path = PathBuf::from(work_dir)
-            .join("bun-docs-mcp-proxy")
+            .join(&version_dir)
             .join(binary_name);
 
         let path_str = path.to_str().unwrap();
@@ -420,16 +463,20 @@ mod tests {
         // Verify path contains all expected components
         assert!(path_str.contains("test"));
         assert!(path_str.contains("work"));
-        assert!(path_str.contains("bun-docs-mcp-proxy"));
+        assert!(path_str.contains("bun-docs-mcp-proxy-v"));
+        assert!(path_str.contains(version));
 
         // Verify path is correctly formed for the platform
         if cfg!(windows) {
             assert_eq!(
                 path_str,
-                "C:\\test\\work\\bun-docs-mcp-proxy\\bun-docs-mcp-proxy"
+                "C:\\test\\work\\bun-docs-mcp-proxy-v0.1.2\\bun-docs-mcp-proxy"
             );
         } else {
-            assert_eq!(path_str, "/test/work/bun-docs-mcp-proxy/bun-docs-mcp-proxy");
+            assert_eq!(
+                path_str,
+                "/test/work/bun-docs-mcp-proxy-v0.1.2/bun-docs-mcp-proxy"
+            );
         }
     }
 
@@ -511,6 +558,7 @@ mod tests {
     fn test_should_check_for_update() {
         let mut ext = BunDocsMcpExtension {
             cached_binary_path: None,
+            cached_version: None,
             last_update_check: None,
         };
 
@@ -527,6 +575,26 @@ mod tests {
             .unwrap();
         ext.last_update_check = Some(interval_ago);
         assert!(ext.should_check_for_update());
+    }
+
+    #[test]
+    fn test_version_directory_naming() {
+        // Test version-specific directory naming convention
+        let version = "0.1.2";
+        let version_dir = format!("bun-docs-mcp-proxy-v{}", version);
+        assert_eq!(version_dir, "bun-docs-mcp-proxy-v0.1.2");
+
+        // Test with v prefix already present
+        let version = "v0.1.2";
+        let version_clean = version.trim_start_matches('v');
+        let version_dir = format!("bun-docs-mcp-proxy-v{}", version_clean);
+        assert_eq!(version_dir, "bun-docs-mcp-proxy-v0.1.2");
+
+        // Verify directory name can be parsed back to version
+        let dir_name = "bun-docs-mcp-proxy-v0.1.2";
+        let extracted_version = dir_name.trim_start_matches("bun-docs-mcp-proxy-v");
+        assert_eq!(extracted_version, "0.1.2");
+        assert!(Version::parse(extracted_version).is_ok());
     }
 
     #[test]

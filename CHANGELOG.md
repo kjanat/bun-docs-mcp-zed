@@ -2,6 +2,72 @@
 
 All notable changes to the Bun Docs MCP extension for Zed.
 
+## [0.2.0] - 2025-11-04
+
+### Added
+
+- **Version-Specific Binary Storage**: Binaries are now stored in version-specific directories
+  - Example: `bun-docs-mcp-proxy-v0.1.2/` instead of fixed `bun-docs-mcp-proxy/`
+  - Enables safe updates with multiple versions coexisting during transitions
+  - Follows Zed extension best practices for dependency management
+
+- **Automatic Cleanup**: Old binary versions are automatically removed after successful updates
+  - Keeps storage footprint minimal
+  - Prevents accumulation of outdated binaries
+  - Runs after each successful binary download
+
+- **Improved Update Mechanism**: Refactored update checking logic
+  - Version is now cached alongside binary path for faster checks
+  - Update checks no longer require executing the binary
+  - Cleaner separation between update detection and download
+
+### Changed
+
+- **Binary Download Path**: Downloads now go to `bun-docs-mcp-proxy-v{VERSION}/` directories
+  - **Breaking**: Manual cleanups should use new path pattern
+  - Improves update reliability and prevents conflicts
+
+- **Extension Version**: Bumped to 0.2.0 to reflect new version management features
+  - Minor version bump follows semantic versioning (new features, backward compatible)
+
+### Technical Details
+
+#### Version-Specific Storage Example
+
+**Before:**
+```
+~/.local/share/zed/extensions/work/bun-docs-mcp/
+└── bun-docs-mcp-proxy/
+    └── bun-docs-mcp-proxy
+```
+
+**After:**
+```
+~/.local/share/zed/extensions/work/bun-docs-mcp/
+└── bun-docs-mcp-proxy-v0.1.2/
+    └── bun-docs-mcp-proxy
+```
+
+#### New Functions
+
+- `cleanup_old_versions()` - Removes old version directories after updates
+- Updated `check_and_update_binary()` - Uses cached version instead of executing binary
+- Updated `ensure_binary()` - Downloads to version-specific directories and triggers cleanup
+
+#### Documentation Updates
+
+- Added "Auto-Update Behavior" section to README.md
+- Enhanced ARCHITECTURE.md with auto-update mechanism details
+- Documented version-specific storage and cleanup strategies
+- Added manual update instructions
+
+#### Tests
+
+- Added `test_version_directory_naming()` to verify directory naming conventions
+- Updated `test_binary_path_construction()` to use version-specific paths
+- All 13 unit tests passing
+- Zero compiler warnings
+
 ## [0.1.1] - 2025-11-03
 
 ### Fixed

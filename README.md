@@ -13,7 +13,7 @@ Search Bun documentation directly in Zed using the Model Context Protocol (MCP).
 - 🪶 **Lightweight** - 1.3 MB compressed, 2.7 MB extracted
 - 🚀 **Fast** - 4ms startup time
 - 🌍 **Multi-Platform** - Supports Linux, macOS, Windows (x86_64/ARM64)
-- 🔄 **Auto-Update** - Downloads latest binary on installation
+- 🔄 **Auto-Update** - Checks for updates daily, downloads automatically with version management
 
 ## Installation
 
@@ -194,6 +194,42 @@ ls -lh ~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/
 ```
 
 > **Note**: Replace paths with your platform-specific location from above.
+
+## Auto-Update Behavior
+
+The extension automatically manages binary updates to keep you on the latest version.
+
+### How It Works
+
+1. **Version-Specific Storage**: Each binary version is stored in its own directory (e.g., `bun-docs-mcp-proxy-v0.1.2/`)
+2. **Daily Update Checks**: Every 24 hours, the extension checks GitHub for newer versions
+3. **Automatic Downloads**: When a new version is found, it's downloaded automatically on next use
+4. **Cleanup**: Old versions are removed after successful updates
+5. **No Interruption**: Updates happen in the background without disrupting your workflow
+
+### Update Schedule
+
+- **First Use**: Downloads the latest binary from GitHub Releases
+- **Every 24 Hours**: Checks for updates when the extension is used
+- **On Update**: Automatically downloads new version and cleans up old ones
+
+### Manual Update
+
+If you want to force an update, you can:
+
+1. Remove the extension's work directory:
+   - **Linux**: `rm -rf ~/.local/share/zed/extensions/work/bun-docs-mcp/`
+   - **macOS**: `rm -rf ~/Library/Application\ Support/Zed/extensions/work/bun-docs-mcp/`
+   - **Windows**: Delete `%APPDATA%\Zed\extensions\work\bun-docs-mcp\`
+2. Restart Zed or re-enable the extension in Assistant
+
+The extension will download the latest binary on next use.
+
+### Version Management
+
+- **Storage**: `~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy-v{VERSION}/`
+- **Cleanup**: Automatic removal of older versions after successful updates
+- **Rollback**: Not automatic, but you can manually download older releases if needed
 
 ## Why Rust?
 

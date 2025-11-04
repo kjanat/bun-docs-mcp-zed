@@ -10,6 +10,9 @@ const UPDATE_CHECK_INTERVAL_SECS: u64 = 86400;
 // Context server identifier that must match extension.toml
 const CONTEXT_SERVER_ID: &str = "bun-docs-mcp";
 
+// Version-specific directory prefix for binary storage
+const PROXY_DIR_PREFIX: &str = "bun-docs-mcp-proxy-v";
+
 // Platform-specific archive names for binary distribution
 const ARCHIVE_LINUX_X64: &str = "bun-docs-mcp-proxy-linux-x86_64.tar.gz";
 const ARCHIVE_LINUX_ARM64: &str = "bun-docs-mcp-proxy-linux-aarch64.tar.gz";
@@ -138,8 +141,6 @@ impl BunDocsMcpExtension {
     /// - `work_dir` - The work directory containing version subdirectories
     /// - `current_version` - The current binary version to keep
     fn cleanup_old_versions(work_dir: &str, current_version: &str) {
-        const PROXY_DIR_PREFIX: &str = "bun-docs-mcp-proxy-v";
-
         // Parse current version for comparison
         let Ok(current) = Version::parse(current_version.trim_start_matches('v')) else {
             return; // Can't parse current version, skip cleanup

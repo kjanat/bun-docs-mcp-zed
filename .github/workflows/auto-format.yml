@@ -58,9 +58,11 @@ jobs:
         continue-on-error: true
 
       - name: Format TOML files with Tombi
-        run: |
-          tombi fmt Cargo.toml
-          tombi fmt extension.toml
+        run: tombi fmt **/*.toml
+        continue-on-error: true
+
+      - name: Lint TOML files with Tombi
+        run: tombi lint **/*.toml
         continue-on-error: true
 
       - name: Check for changes

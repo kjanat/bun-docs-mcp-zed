@@ -25,6 +25,8 @@ const ARCHIVE_WINDOWS_ARM64: &str = "bun-docs-mcp-proxy-windows-aarch64.zip";
 struct BunDocsMcpExtension {
     cached_binary_path: Option<String>,
     current_version: Option<String>,
+    /// Tracks whether we've checked for updates this session
+    update_checked_this_session: bool,
 }
 
 impl BunDocsMcpExtension {
@@ -141,21 +143,31 @@ impl BunDocsMcpExtension {
     /// Ensures the MCP server binary is available, downloading if necessary.
     ///
     /// This function:
-    /// 1. Checks GitHub for the latest version on EVERY call
-    /// 2. Downloads to version-specific folder if update available
-    /// 3. Returns cached binary if it's already the latest version
+    /// 1. Checks GitHub for updates ONCE per Zed session (on first call)
+    /// 2. Returns cached binary for subsequent calls in the same session
+    /// 3. Downloads to version-specific folder if update available
     /// 4. Cleans up old version directories automatically
     ///
     /// # Returns
     /// - `Ok(String)` - Absolute path to the binary
     /// - `Err(String)` - Error if download, extraction, or verification fails
     fn ensure_binary(&mut self) -> Result<String, String> {
+        // If we've already checked and have a valid cached binary, return it immediately
+        // This avoids excessive GitHub API calls during a single Zed session
+        if self.update_checked_this_session {
+            if let Some(cached_path) = &self.cached_binary_path {
+                if PathBuf::from(cached_path).exists() {
+                    return Ok(cached_path.clone());
+                }
+            }
+        }
+
         // Get work directory (where extension runs)
         let work_dir = std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
             .map_err(|e| format!("Failed to get work directory: {}", e))?;
 
-        // Always check for latest release from GitHub
+        // Check for latest release from GitHub (once per session)
         let release = zed::latest_github_release(
             PROXY_REPO,
             zed::GithubReleaseOptions {
@@ -166,6 +178,9 @@ impl BunDocsMcpExtension {
         .map_err(|e| format!("Failed to get latest release from {}: {}", PROXY_REPO, e))?;
 
         let latest_version = release.version.trim_start_matches('v');
+
+        // Mark that we've checked for updates this session
+        self.update_checked_this_session = true;
 
         // If we have a cached binary with the same version, return it
         if let (Some(cached_path), Some(current_version)) =
@@ -275,6 +290,7 @@ impl zed::Extension for BunDocsMcpExtension {
         Self {
             cached_binary_path: None,
             current_version: None,
+            update_checked_this_session: false,
         }
     }
 

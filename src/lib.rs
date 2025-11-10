@@ -100,6 +100,7 @@ impl BunDocsMcpExtension {
     }
 
     /// Cleans up old version directories, keeping only the specified version.
+    /// Also removes any old non-versioned binaries from previous folder structure.
     ///
     /// # Arguments
     /// - `work_dir` - Base work directory
@@ -118,9 +119,10 @@ impl BunDocsMcpExtension {
             format!("v{}", keep_version)
         };
 
-        // Delete all version directories except the one we want to keep
+        // Delete old version directories and non-versioned files
         for entry in entries.flatten() {
             let path = entry.path();
+
             if path.is_dir() {
                 if let Some(dir_name) = path.file_name().and_then(|n| n.to_str()) {
                     // Only delete version directories (start with 'v' and not the one we're keeping)
@@ -128,6 +130,10 @@ impl BunDocsMcpExtension {
                         fs::remove_dir_all(path).ok();
                     }
                 }
+            } else if path.is_file() {
+                // Delete any files in the base directory (old non-versioned binaries)
+                // These are from the previous folder structure before versioning was added
+                fs::remove_file(path).ok();
             }
         }
     }

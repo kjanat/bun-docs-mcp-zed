@@ -10,7 +10,7 @@ jobs:
     name: Release Bun Docs MCP Extension
     runs-on: ubuntu-latest
     steps:
-      - uses: huacnlee/zed-extension-action@v1
+      - uses: huacnlee/zed-extension-action@v2
         with:
           extension-name: bun-docs-mcp
           # Your fork of zed-industries/extensions

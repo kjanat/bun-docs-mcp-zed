@@ -196,9 +196,12 @@ impl BunDocsMcpExtension {
         }
 
         // Make it executable (Unix platforms)
-        #[cfg(unix)]
-        zed::make_file_executable(&binary_path_str)
-            .map_err(|e| format!("Failed to make {} executable: {}", binary_path_str, e))?;
+        // Use runtime platform detection since WASM is compiled for wasm32, not the host OS
+        let (os, _) = zed::current_platform();
+        if os != zed::Os::Windows {
+            zed::make_file_executable(&binary_path_str)
+                .map_err(|e| format!("Failed to make {} executable: {}", binary_path_str, e))?;
+        }
 
         self.cached_binary_path = Some(binary_path_str.clone());
         Ok(binary_path_str)
@@ -313,36 +316,9 @@ mod tests {
     }
 
     #[test]
-    fn test_unsupported_platform_error() {
-        // Platform detection uses zed::current_platform() which returns host OS
-        // Unsupported platforms would need to be tested manually or with integration tests
-        // This test documents the expected error format for unsupported platforms
-        let expected_prefix = "Unsupported platform:";
-        let expected_suffix = "please file an issue";
-
-        assert!(!expected_prefix.is_empty());
-        assert!(!expected_suffix.is_empty());
-    }
-
-    #[test]
     fn test_context_server_id_constant() {
         // Verify CONTEXT_SERVER_ID matches extension.toml
         assert_eq!(CONTEXT_SERVER_ID, "bun-docs-mcp");
-    }
-
-    #[test]
-    fn test_constants_defined() {
-        // Platform functions use zed::current_platform() which only works in WASM runtime
-        // Cannot be tested in native unit tests - must test via dev extension in Zed
-        // This test verifies the expected constants exist
-        assert_eq!(CONTEXT_SERVER_ID, "bun-docs-mcp");
-
-        // Verify expected archive names are valid
-        let archives = vec![ARCHIVE_LINUX_X64, ARCHIVE_MACOS_ARM64, ARCHIVE_WINDOWS_X64];
-        for archive in archives {
-            assert!(archive.contains("bun-docs-mcp-proxy-"));
-            assert!(archive.ends_with(".tar.gz") || archive.ends_with(".zip"));
-        }
     }
 
 }

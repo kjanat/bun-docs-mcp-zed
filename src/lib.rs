@@ -1,26 +1,20 @@
-use semver::Version;
 use std::fs;
 use std::path::PathBuf;
-use std::time::SystemTime;
 use zed_extension_api as zed;
 
 // ISSUE #8 - System Soft Lock Prevention
 //
-// This extension has been hardened against proxy binary crashes (SIGABRT) that can
-// cause system soft locks when Zed repeatedly tries to restart a failing binary.
+// This extension uses a simple "download-once" approach to prevent proxy binary
+// crashes from causing system soft locks. The extension:
 //
-// Safety mechanisms:
-// 1. Binary validation before execution (prevents executing corrupted files)
-// 2. Defensive error handling in update checks (fail fast on binary issues)
-// 3. Environment variable to disable auto-updates: BUN_DOCS_MCP_DISABLE_AUTO_UPDATE=1
+// 1. Downloads the latest proxy binary from GitHub Releases on first use
+// 2. Reuses the downloaded binary on subsequent calls (no version checking)
+// 3. Never executes the binary to check its version (prevents hanging/crashing)
 //
-// If experiencing crashes, users can set BUN_DOCS_MCP_DISABLE_AUTO_UPDATE=1 in their
-// environment to prevent the extension from checking proxy binary versions.
+// Users receive proxy updates when they update the extension through Zed's normal
+// extension update mechanism. This avoids the complexity and risk of auto-updates.
 //
 // See: https://github.com/kjanat/bun-docs-mcp-zed/issues/8
-
-// How often to check for binary updates (24 hours)
-const UPDATE_CHECK_INTERVAL_SECS: u64 = 86400;
 
 // Context server identifier that must match extension.toml
 const CONTEXT_SERVER_ID: &str = "bun-docs-mcp";
@@ -35,7 +29,6 @@ const ARCHIVE_WINDOWS_ARM64: &str = "bun-docs-mcp-proxy-windows-aarch64.zip";
 
 struct BunDocsMcpExtension {
     cached_binary_path: Option<String>,
-    last_update_check: Option<SystemTime>,
 }
 
 impl BunDocsMcpExtension {
@@ -91,202 +84,25 @@ impl BunDocsMcpExtension {
         }
     }
 
-    /// Retrieves the version string from the binary by running `--version`.
-    ///
-    /// # Arguments
-    /// - `binary_path` - Absolute path to the binary
-    ///
-    /// # Returns
-    /// - `Ok(String)` - Version string (e.g., "0.1.2")
-    /// - `Err(String)` - Error if binary can't be executed or version can't be parsed
-    ///
-    /// # Safety
-    /// This function runs an external binary synchronously without timeout.
-    /// In a WASM single-threaded environment, if the binary hangs, this will
-    /// block indefinitely. Callers should validate the binary exists and is
-    /// executable before calling this function.
-    fn get_binary_version(binary_path: &str) -> Result<String, String> {
-        use std::process::Command;
-
-        // Validate binary exists and is a file before attempting to execute
-        // This prevents blocking on non-existent or corrupted binaries
-        match fs::metadata(binary_path) {
-            Ok(metadata) if !metadata.is_file() => {
-                return Err(format!("Binary path is not a file: {}", binary_path));
-            }
-            Err(e) => {
-                return Err(format!("Binary not found at {}: {}", binary_path, e));
-            }
-            _ => {}
-        }
-
-        let output = Command::new(binary_path)
-            .arg("--version")
-            .output()
-            .map_err(|e| format!("Failed to run binary --version: {}", e))?;
-
-        if !output.status.success() {
-            return Err("Binary --version exited with error".to_string());
-        }
-
-        // Parse "bun-docs-mcp-proxy 0.1.2" -> "0.1.2"
-        let version_output = String::from_utf8_lossy(&output.stdout);
-        let version = version_output
-            .split_whitespace()
-            .last()
-            .ok_or_else(|| "Failed to parse version output".to_string())?
-            .to_string();
-
-        Ok(version)
-    }
-
-    /// Determines if enough time has passed since the last update check.
-    ///
-    /// Update checks are rate-limited to once per 24 hours to avoid
-    /// excessive GitHub API calls.
-    ///
-    /// # Returns
-    /// - `true` - If update check should be performed
-    /// - `false` - If too soon since last check or explicitly disabled
-    ///
-    /// # Environment Variables
-    /// - `BUN_DOCS_MCP_DISABLE_AUTO_UPDATE=1` - Disables automatic update checks
-    ///   This is useful if the proxy binary is unstable and crashes during version checks
-    fn should_check_for_update(&self) -> bool {
-        // Check if auto-updates are disabled via environment variable
-        // This provides a workaround for users experiencing proxy binary crashes
-        if std::env::var("BUN_DOCS_MCP_DISABLE_AUTO_UPDATE").is_ok() {
-            return false;
-        }
-
-        match self.last_update_check {
-            None => true, // Never checked
-            Some(last) => {
-                let interval = std::time::Duration::from_secs(UPDATE_CHECK_INTERVAL_SECS);
-                // If elapsed() fails (system clock moved backward), assume interval has passed.
-                // This errs on the side of checking for updates rather than never checking.
-                last.elapsed().unwrap_or(interval) >= interval
-            }
-        }
-    }
-
-    /// Checks for a newer binary version and deletes the old one if found.
-    ///
-    /// This triggers a re-download on the next `ensure_binary()` call.
-    /// Errors during the update check are intentionally ignored to avoid
-    /// disrupting normal operation. This function is designed to fail gracefully
-    /// and never block or crash the extension.
-    ///
-    /// # Arguments
-    /// - `binary_path` - Path to the current binary
-    ///
-    /// # Returns
-    /// - `Ok(())` - Check completed (regardless of whether update found)
-    /// - `Err(String)` - Only returned if critical error occurs
-    ///
-    /// # Important
-    /// This function may block if the binary hangs when called with --version.
-    /// All errors are caught and ignored to prevent blocking the UI.
-    fn check_and_update_binary(&mut self, binary_path: &str) -> Result<(), String> {
-        // SAFETY: Early validation before running binary
-        // Check that binary exists and is executable before attempting version check
-        // This helps prevent blocking on corrupted or missing binaries
-        if let Err(_) = fs::metadata(binary_path) {
-            // Binary doesn't exist or can't be accessed, skip update check
-            // This prevents blocking on inaccessible files
-            return Ok(());
-        }
-
-        // Get current binary version (may block if binary hangs)
-        // Wrapped in defensive error handling to fail fast
-        let current_version = match Self::get_binary_version(binary_path) {
-            Ok(v) => v,
-            Err(_) => {
-                // Binary doesn't support --version or execution failed
-                // Skip update check rather than risk blocking
-                return Ok(());
-            }
-        };
-
-        // Get latest release from GitHub (non-blocking: ignore errors)
-        let release = zed::latest_github_release(
-            "kjanat/bun-docs-mcp-proxy",
-            zed::GithubReleaseOptions {
-                require_assets: true,
-                pre_release: false,
-            },
-        )
-        .ok();
-
-        let Some(release) = release else {
-            // Network error or GitHub API issue, skip update
-            return Ok(());
-        };
-
-        // Compare versions using proper semantic versioning
-        let latest_version_str = release.version.trim_start_matches('v');
-        let current_version_str = current_version.trim_start_matches('v');
-
-        // Parse versions, skip update check if parsing fails
-        let Ok(latest_version) = Version::parse(latest_version_str) else {
-            return Ok(());
-        };
-        let Ok(current_version) = Version::parse(current_version_str) else {
-            return Ok(());
-        };
-
-        if latest_version > current_version {
-            // Delete old binary to trigger re-download on next call
-            // Ignore errors if deletion fails (e.g., file in use)
-            fs::remove_file(binary_path).ok();
-            self.cached_binary_path = None;
-        }
-
-        Ok(())
-    }
-
     /// Ensures the MCP server binary is available, downloading if necessary.
     ///
-    /// This function:
+    /// This function uses a simple "download-once" approach:
     /// 1. Returns cached binary path if available
-    /// 2. Checks for updates if enough time has passed
+    /// 2. Checks if binary exists on disk
     /// 3. Downloads from GitHub Releases if binary doesn't exist
     /// 4. Extracts archive and makes binary executable (Unix)
+    ///
+    /// No version checking or auto-updates are performed to avoid executing
+    /// the binary (which could crash or hang). Users receive updates when they
+    /// update the extension through Zed.
     ///
     /// # Returns
     /// - `Ok(String)` - Absolute path to the binary
     /// - `Err(String)` - Error if download, extraction, or verification fails
-    ///
-    /// # Thread Safety
-    /// Safe to call from single-threaded WASM environment (Zed extensions).
-    /// If adapted for multi-threaded use, proper locking is required.
     fn ensure_binary(&mut self) -> Result<String, String> {
-        // Check for updates if binary is cached and enough time has passed
-        //
-        // SAFETY NOTE: This update logic has a theoretical race condition where
-        // check_and_update_binary() may delete the binary and clear cached_binary_path,
-        // but another thread could read the stale path before the deletion completes.
-        // However, Zed extensions run in single-threaded WASM, so this is not a practical
-        // concern. If this code is adapted for multi-threaded use, proper locking is needed.
-        if self.cached_binary_path.is_some() {
-            if self.should_check_for_update() {
-                // Clone only when needed for update check (avoids clone on every call)
-                let cached = self.cached_binary_path.as_ref().unwrap().clone();
-
-                // Update check failures are intentionally ignored to avoid disrupting user workflow.
-                // The extension continues using the existing binary if update check fails due to:
-                // - Network errors (GitHub API unavailable)
-                // - Version parsing failures
-                // - Binary execution errors
-                // This ensures the extension remains usable even with connectivity issues.
-                self.check_and_update_binary(&cached).ok();
-                self.last_update_check = Some(SystemTime::now());
-            }
-
-            // If update deleted binary, cached_binary_path will be None, continue to download
-            if let Some(cached) = &self.cached_binary_path {
-                return Ok(cached.clone());
-            }
+        // Return cached path if we've already resolved it
+        if let Some(cached) = &self.cached_binary_path {
+            return Ok(cached.clone());
         }
 
         const PROXY_REPO: &str = "kjanat/bun-docs-mcp-proxy";
@@ -393,7 +209,6 @@ impl zed::Extension for BunDocsMcpExtension {
     fn new() -> Self {
         Self {
             cached_binary_path: None,
-            last_update_check: None,
         }
     }
 
@@ -521,7 +336,6 @@ mod tests {
         // Cannot be tested in native unit tests - must test via dev extension in Zed
         // This test verifies the expected constants exist
         assert_eq!(CONTEXT_SERVER_ID, "bun-docs-mcp");
-        assert_eq!(UPDATE_CHECK_INTERVAL_SECS, 86400);
 
         // Verify expected archive names are valid
         let archives = vec![ARCHIVE_LINUX_X64, ARCHIVE_MACOS_ARM64, ARCHIVE_WINDOWS_X64];
@@ -531,121 +345,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn test_version_parsing() {
-        // Test parsing version output format "bun-docs-mcp-proxy 0.1.2"
-        let version_output = "bun-docs-mcp-proxy 0.1.2";
-        let version = version_output.split_whitespace().last().unwrap();
-        assert_eq!(version, "0.1.2");
-
-        // Test with just version number
-        let version_output = "0.1.2";
-        let version = version_output.split_whitespace().last().unwrap();
-        assert_eq!(version, "0.1.2");
-
-        // Test with v prefix
-        let version_output = "bun-docs-mcp-proxy v0.1.2";
-        let version = version_output.split_whitespace().last().unwrap();
-        assert_eq!(version, "v0.1.2");
-    }
-
-    #[test]
-    fn test_version_comparison() {
-        // Test proper semantic version comparison
-        let v1 = Version::parse("0.1.2").unwrap();
-        let v2 = Version::parse("0.1.2").unwrap();
-        assert_eq!(v1, v2);
-
-        let v1 = Version::parse("0.1.2").unwrap();
-        let v2 = Version::parse("0.1.3").unwrap();
-        assert!(v2 > v1);
-
-        // Test that version comparison handles double digits correctly
-        let v1 = Version::parse("0.1.9").unwrap();
-        let v2 = Version::parse("0.1.10").unwrap();
-        assert!(v2 > v1, "0.1.10 should be greater than 0.1.9");
-
-        // Test v prefix stripping before parsing
-        let v1 = "v0.1.2".trim_start_matches('v');
-        let v2 = "0.1.2".trim_start_matches('v');
-        assert_eq!(Version::parse(v1).unwrap(), Version::parse(v2).unwrap());
-    }
-
-    #[test]
-    fn test_should_check_for_update() {
-        let mut ext = BunDocsMcpExtension {
-            cached_binary_path: None,
-            last_update_check: None,
-        };
-
-        // Should check when never checked before
-        assert!(ext.should_check_for_update());
-
-        // Should not check immediately after checking
-        ext.last_update_check = Some(SystemTime::now());
-        assert!(!ext.should_check_for_update());
-
-        // Should check after update interval has passed
-        let interval_ago = SystemTime::now()
-            .checked_sub(std::time::Duration::from_secs(UPDATE_CHECK_INTERVAL_SECS))
-            .unwrap();
-        ext.last_update_check = Some(interval_ago);
-        assert!(ext.should_check_for_update());
-    }
-
-    #[test]
-    fn test_version_parsing_edge_cases() {
-        // Test malformed version output (empty string)
-        let version_output = "";
-        assert_eq!(version_output.split_whitespace().last(), None);
-
-        // Test malformed version output (whitespace only)
-        let version_output = "   ";
-        assert_eq!(version_output.split_whitespace().last(), None);
-
-        // Test version output with multiple spaces
-        let version_output = "bun-docs-mcp-proxy    0.1.2";
-        let version = version_output.split_whitespace().last().unwrap();
-        assert_eq!(version, "0.1.2");
-
-        // Test version with newlines
-        let version_output = "bun-docs-mcp-proxy 0.1.2\n";
-        let version = version_output.split_whitespace().last().unwrap();
-        assert_eq!(version, "0.1.2");
-    }
-
-    #[test]
-    fn test_semver_parsing_edge_cases() {
-        // Test invalid semver strings gracefully fail
-        assert!(Version::parse("not-a-version").is_err());
-        assert!(Version::parse("1.2").is_err()); // Missing patch
-        assert!(Version::parse("1.2.3.4").is_err()); // Too many components
-
-        // Test pre-release versions work correctly
-        let v1 = Version::parse("0.1.2").unwrap();
-        let v2 = Version::parse("0.1.3-beta").unwrap();
-        assert!(v2 > v1, "0.1.3-beta should be greater than 0.1.2");
-
-        let v1 = Version::parse("0.1.3-alpha").unwrap();
-        let v2 = Version::parse("0.1.3-beta").unwrap();
-        assert!(v2 > v1, "beta comes after alpha");
-    }
-
-    #[test]
-    fn test_version_comparison_edge_cases() {
-        // Test major version takes precedence
-        let v1 = Version::parse("0.1.10").unwrap();
-        let v2 = Version::parse("1.0.0").unwrap();
-        assert!(v2 > v1, "1.0.0 should be greater than 0.1.10");
-
-        // Test minor version takes precedence over patch
-        let v1 = Version::parse("0.1.99").unwrap();
-        let v2 = Version::parse("0.2.0").unwrap();
-        assert!(v2 > v1, "0.2.0 should be greater than 0.1.99");
-
-        // Test large version numbers
-        let v1 = Version::parse("0.999.999").unwrap();
-        let v2 = Version::parse("1.0.0").unwrap();
-        assert!(v2 > v1);
-    }
 }

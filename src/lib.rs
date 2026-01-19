@@ -1,3 +1,6 @@
+// Allow multiple hashbrown versions from transitive dependencies (semver, zed_extension_api)
+#![allow(clippy::multiple_crate_versions)]
+
 use semver::Version;
 use std::fs;
 use std::path::PathBuf;
@@ -9,6 +12,10 @@ const UPDATE_CHECK_INTERVAL_SECS: u64 = 86400;
 
 // Context server identifier that must match extension.toml
 const CONTEXT_SERVER_ID: &str = "bun-docs-mcp";
+
+// GitHub repository and directory names for the proxy binary
+const PROXY_REPO: &str = "kjanat/bun-docs-mcp-proxy";
+const PROXY_DIR: &str = "bun-docs-mcp-proxy";
 
 // Platform-specific archive names for binary distribution
 const ARCHIVE_LINUX_X64: &str = "bun-docs-mcp-proxy-linux-x86_64.tar.gz";
@@ -114,15 +121,12 @@ impl BunDocsMcpExtension {
     /// - `true` - If update check should be performed
     /// - `false` - If too soon since last check
     fn should_check_for_update(&self) -> bool {
-        match self.last_update_check {
-            None => true, // Never checked
-            Some(last) => {
-                let interval = std::time::Duration::from_secs(UPDATE_CHECK_INTERVAL_SECS);
-                // If elapsed() fails (system clock moved backward), assume interval has passed.
-                // This errs on the side of checking for updates rather than never checking.
-                last.elapsed().unwrap_or(interval) >= interval
-            }
-        }
+        self.last_update_check.is_none_or(|last| {
+            let interval = std::time::Duration::from_secs(UPDATE_CHECK_INTERVAL_SECS);
+            // If elapsed() fails (system clock moved backward), assume interval has passed.
+            // This errs on the side of checking for updates rather than never checking.
+            last.elapsed().unwrap_or(interval) >= interval
+        })
     }
 
     /// Checks for a newer binary version and deletes the old one if found.
@@ -134,14 +138,14 @@ impl BunDocsMcpExtension {
     /// # Arguments
     /// - `binary_path` - Path to the current binary
     ///
-    /// # Returns
-    /// - `Ok(())` - Check completed (regardless of whether update found)
-    /// - `Err(String)` - Only returned if critical error occurs
+    /// # Note
+    /// Returns `Result` for semantic clarity even though errors are suppressed.
+    /// All code paths return `Ok(())` because update check failures should not
+    /// block normal operation.
     fn check_and_update_binary(&mut self, binary_path: &str) -> Result<(), String> {
         // Get current binary version
-        let current_version = match Self::get_binary_version(binary_path) {
-            Ok(v) => v,
-            Err(_) => return Ok(()), // Old binary without --version, skip update check
+        let Ok(current_version) = Self::get_binary_version(binary_path) else {
+            return Ok(()); // Old binary without --version, skip update check
         };
 
         // Get latest release from GitHub (non-blocking: ignore errors)
@@ -223,9 +227,6 @@ impl BunDocsMcpExtension {
             }
         }
 
-        const PROXY_REPO: &str = "kjanat/bun-docs-mcp-proxy";
-        const PROXY_DIR: &str = "bun-docs-mcp-proxy";
-
         // Get work directory (where extension runs)
         let work_dir = std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
@@ -284,9 +285,13 @@ impl BunDocsMcpExtension {
             })?;
 
         // Download and extract the archive
-        let file_type = if archive_name.ends_with(".zip") {
+        let archive_path = std::path::Path::new(archive_name);
+        let file_type = if archive_path
+            .extension()
+            .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
+        {
             zed::DownloadedFileType::Zip
-        } else if archive_name.ends_with(".tar.gz") {
+        } else if archive_name.to_ascii_lowercase().ends_with(".tar.gz") {
             zed::DownloadedFileType::GzipTar
         } else {
             zed::DownloadedFileType::Uncompressed
@@ -348,6 +353,7 @@ impl zed::Extension for BunDocsMcpExtension {
 zed::register_extension!(BunDocsMcpExtension);
 
 #[cfg(test)]
+#[allow(clippy::case_sensitive_file_extension_comparisons)]
 mod tests {
     use super::*;
 

@@ -2,6 +2,11 @@
 
 All notable changes to the Bun Docs MCP extension for Zed.
 
+The format is based on [Keep a Changelog], and this project adheres to
+[Semantic Versioning].
+
+## [Unreleased]
+
 ## [0.1.1] - 2025-11-03
 
 ### Fixed
@@ -100,12 +105,19 @@ match (os, arch) {
 - 10x faster startup than TypeScript implementation
 - 2.7 MB binary footprint vs 50+ MB with runtime
 
----
+<!--tag-link-definitions-start-->
 
-## Version Format
+[Unreleased]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.1.1...HEAD
+[0.1.1]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.1.0...v0.1.1
+[0.1.0]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.0.1...v0.1.0
 
-This project follows [Semantic Versioning](https://semver.org/):
+<!--tag-link-definitions-end-->
 
-- **MAJOR** version: Incompatible API changes
-- **MINOR** version: Backwards-compatible functionality additions
-- **PATCH** version: Backwards-compatible bug fixes
+<!--link-definitions-start-->
+
+[Keep a Changelog]: https://keepachangelog.com/en/1.1.0/
+[Semantic Versioning]: https://semver.org/spec/v2.0.0.html
+
+<!--link-definitions-end-->
+
+<!--markdownlint-disable-file no-duplicate-heading-->

@@ -1,0 +1,28 @@
+name: autofix.ci
+on: { pull_request: {}, push: { branches: [master] } }
+permissions: { contents: read }
+env: { rust_clippy: "1.92" }
+jobs:
+  autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: autofix-${{ hashFiles('**/Cargo.lock') }}
+      - run: rustup toolchain install ${{ env.rust_clippy }} --profile minimal --component rustfmt --component clippy
+      - run: rustup default ${{ env.rust_clippy }}
+      - run: cargo clippy --fix --allow-dirty --allow-staged
+        continue-on-error: true
+      - uses: oven-sh/setup-bun@v2
+      - run: bun i -g dprint tombi
+        continue-on-error: false
+      - run: dprint fmt --allow-no-files
+        continue-on-error: false
+      - uses: autofix-ci/action@v1

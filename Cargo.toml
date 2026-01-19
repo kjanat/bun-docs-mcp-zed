@@ -3,7 +3,10 @@ name        = "bun-docs-mcp-zed"
 version     = "0.1.1"
 edition     = "2024"
 description = "Bun Docs MCP extension for Zed"
+repository  = "https://github.com/kjanat/bun-docs-mcp-zed"
 license     = "MIT"
+keywords    = ["bun", "documentation", "extension", "mcp", "zed"]
+categories  = ["development-tools", "text-editors"]
 
 [lib]
 crate-type = ["cdylib"]

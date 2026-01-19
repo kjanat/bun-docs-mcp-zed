@@ -34,9 +34,9 @@ impl BunDocsMcpExtension {
     /// - `Err(String)` - Error if platform is not supported
     ///
     /// # Supported Platforms
-    /// - Linux: x86_64, aarch64
-    /// - macOS: x86_64, aarch64
-    /// - Windows: x86_64, aarch64
+    /// - Linux: `x86_64`, aarch64
+    /// - macOS: `x86_64`, aarch64
+    /// - Windows: `x86_64`, aarch64
     fn get_platform_archive_name() -> Result<&'static str, String> {
         // Use zed::current_platform() instead of std::env::consts
         // When running as WASM, std::env::consts::OS returns "wasm32" instead of host OS
@@ -51,9 +51,7 @@ impl BunDocsMcpExtension {
             (zed::Os::Windows, zed::Architecture::X8664) => Ok(ARCHIVE_WINDOWS_X64),
             (zed::Os::Windows, zed::Architecture::Aarch64) => Ok(ARCHIVE_WINDOWS_ARM64),
             _ => Err(format!(
-                "Unsupported platform: {:?} {:?} - please file an issue at https://github.com/kjanat/bun-docs-mcp-zed/issues",
-                os,
-                arch
+                "Unsupported platform: {os:?} {arch:?} - please file an issue at https://github.com/kjanat/bun-docs-mcp-zed/issues"
             )),
         }
     }
@@ -90,7 +88,7 @@ impl BunDocsMcpExtension {
         let output = Command::new(binary_path)
             .arg("--version")
             .output()
-            .map_err(|e| format!("Failed to run binary --version: {}", e))?;
+            .map_err(|e| format!("Failed to run binary --version: {e}"))?;
 
         if !output.status.success() {
             return Err("Binary --version exited with error".to_string());
@@ -231,7 +229,7 @@ impl BunDocsMcpExtension {
         // Get work directory (where extension runs)
         let work_dir = std::env::current_dir()
             .map(|p| p.to_string_lossy().to_string())
-            .map_err(|e| format!("Failed to get work directory: {}", e))?;
+            .map_err(|e| format!("Failed to get work directory: {e}"))?;
 
         let binary_name = Self::get_binary_name();
 
@@ -249,21 +247,16 @@ impl BunDocsMcpExtension {
                 if metadata.is_file() {
                     self.cached_binary_path = Some(binary_path_str.clone());
                     return Ok(binary_path_str);
-                } else {
-                    return Err(format!(
-                        "Binary path exists but is not a file: {}",
-                        binary_path_str
-                    ));
                 }
+                return Err(format!(
+                    "Binary path exists but is not a file: {binary_path_str}"
+                ));
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 // Binary doesn't exist, proceed with download
             }
             Err(e) => {
-                return Err(format!(
-                    "Failed to check binary at {}: {}",
-                    binary_path_str, e
-                ));
+                return Err(format!("Failed to check binary at {binary_path_str}: {e}"));
             }
         }
 
@@ -275,7 +268,7 @@ impl BunDocsMcpExtension {
                 pre_release: false,
             },
         )
-        .map_err(|e| format!("Failed to get latest release from {}: {}", PROXY_REPO, e))?;
+        .map_err(|e| format!("Failed to get latest release from {PROXY_REPO}: {e}"))?;
 
         // Find the asset for our platform
         let archive_name = Self::get_platform_archive_name()?;
@@ -310,15 +303,14 @@ impl BunDocsMcpExtension {
         // Verify the binary was extracted correctly
         if !binary_path.exists() {
             return Err(format!(
-                "Binary not found at expected path after extraction: {}",
-                binary_path_str
+                "Binary not found at expected path after extraction: {binary_path_str}"
             ));
         }
 
         // Make it executable (Unix platforms)
         #[cfg(unix)]
         zed::make_file_executable(&binary_path_str)
-            .map_err(|e| format!("Failed to make {} executable: {}", binary_path_str, e))?;
+            .map_err(|e| format!("Failed to make {binary_path_str} executable: {e}"))?;
 
         self.cached_binary_path = Some(binary_path_str.clone());
         Ok(binary_path_str)
@@ -348,7 +340,7 @@ impl zed::Extension for BunDocsMcpExtension {
                     env: vec![],
                 })
             }
-            id => Err(format!("Unknown context server: {}", id)),
+            id => Err(format!("Unknown context server: {id}")),
         }
     }
 }

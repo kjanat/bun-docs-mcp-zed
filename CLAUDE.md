@@ -1,10 +1,10 @@
 # Bun Docs MCP Extension for Zed
 
-Repository: https://github.com/kjanat/bun-docs-mcp-zed
+Repository: [github:kjanat/bun-docs-mcp-zed]
 
 ## Quick Reference
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for complete technical details.
+See [ARCHITECTURE.md] for complete technical details.
 
 ## Development
 
@@ -21,25 +21,29 @@ cargo test
 
 ## Publishing to Zed Extensions
 
-1. Fork https://github.com/zed-industries/extensions
+1. Fork [github:zed-industries/extensions]
 2. Add submodule:
+
    ```sh
    git submodule add https://github.com/kjanat/bun-docs-mcp-zed.git extensions/bun-docs-mcp
    ```
+
 3. Update `extensions.toml`:
+
    ```toml
    [bun-docs-mcp]
    submodule = "extensions/bun-docs-mcp"
-   version = "0.1.0"
+   version   = "0.1.2"
    ```
+
 4. Run `pnpm sort-extensions`
 5. Open PR
 
 ## Official Documentation
 
-- [Zed Extension Development](https://zed.dev/docs/extensions/developing-extensions)
-- [MCP Server Extensions](https://zed.dev/docs/extensions/mcp-extensions)
-- [Extension API Reference](https://github.com/zed-industries/zed/tree/main/crates/extension_api)
+- [Zed Extension Development]
+- [MCP Server Extensions]
+- [Extension API Reference]
 
 ## Project Conventions
 
@@ -48,3 +52,12 @@ cargo test
 - **Binary Distribution**: Auto-download from GitHub Releases
 - **Testing**: Unit tests in src/lib.rs
 - **Formatting**: cargo fmt (enforced by pre-commit)
+
+<!--link-definitions-->
+
+[ARCHITECTURE.md]: https://github.com/kjanat/bun-docs-mcp-zed/blob/master/ARCHITECTURE.md
+[Extension API Reference]: https://github.com/zed-industries/zed/tree/main/crates/extension_api
+[github:kjanat/bun-docs-mcp-zed]: https://github.com/kjanat/bun-docs-mcp-zed
+[github:zed-industries/extensions]: https://github.com/zed-industries/extensions
+[MCP Server Extensions]: https://zed.dev/docs/extensions/mcp-extensions
+[Zed Extension Development]: https://zed.dev/docs/extensions/developing-extensions

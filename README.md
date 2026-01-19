@@ -1,6 +1,6 @@
 # Bun Docs MCP for Zed
 
-[![Rust CI](https://github.com/kjanat/bun-docs-mcp-zed/actions/workflows/rust-ci.yml/badge.svg)][rust-ci]
+[![Rust CI][badge:rust-ci]][rust-ci]
 
 Search Bun documentation directly in Zed using the Model Context Protocol (MCP).
 
@@ -20,8 +20,8 @@ Search Bun documentation directly in Zed using the Model Context Protocol (MCP).
 ### From Zed Extensions (Coming Soon)
 
 1. Open Zed
-2. <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> (macOS) or  
-   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> (Linux/Windows)  
+2. <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> (macOS) or\
+   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>X</kbd> (Linux/Windows)\
    → `Extensions`
 3. Search: "Bun Docs MCP"
 4. Click Install
@@ -36,17 +36,18 @@ cd bun-docs-mcp-zed
 
 Then, install in Zed:
 
-- Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (macOS) or  
+- Press <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (macOS) or\
   <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (Linux/Windows)
 - Type: "zed: install dev extension"
 - Select this directory
 
-**No build required!** The extension auto-downloads the Rust binary from GitHub Releases on first use.
+**No build required!** The extension auto-downloads the Rust binary from GitHub
+Releases on first use.
 
 ## Usage
 
-1. **Open Assistant**:  
-   <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> (macOS) or  
+1. **Open Assistant**:\
+   <kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> (macOS) or\
    <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>A</kbd> (Linux/Windows)
 2. **Enable Context**: Click context dropdown → Enable "bun-docs-mcp"
 3. **Ask Questions**: "How does Bun.serve work?"
@@ -76,7 +77,8 @@ flowchart TD
 ### How It Works
 
 1. **Extension**: Zed loads the WASM extension from this repo
-2. **Auto-Download**: On first use, downloads platform-specific binary from [GitHub Releases][releases]
+2. **Auto-Download**: On first use, downloads platform-specific binary from
+   [GitHub Releases][releases]
 3. **Proxy Binary**: Rust binary translates between:
    - Zed's stdin/stdout (JSON-RPC)
    - Bun Docs HTTP API (SSE responses)
@@ -111,7 +113,7 @@ Static Linux builds (musl) also available.
 
 ### Project Structure
 
-```
+```tree
 bun-docs-mcp-zed/
 ├── extension.toml      # Zed extension metadata
 ├── Cargo.toml          # Rust build configuration
@@ -121,7 +123,8 @@ bun-docs-mcp-zed/
 └── README.md           # This file
 ```
 
-**Proxy implementation**: Separate repo at [kjanat/bun-docs-mcp-proxy][bun-docs-mcp-proxy]
+**Proxy implementation**: Separate repo at
+[kjanat/bun-docs-mcp-proxy][bun-docs-mcp-proxy]
 
 ### Building
 
@@ -147,9 +150,9 @@ cargo build --release --lib
 
 ## Technical Details
 
-**MCP Protocol**: JSON-RPC 2.0 over stdio  
-**Transport**: Server-Sent Events (SSE) over HTTPS  
-**API Endpoint**: `https://bun.com/docs/mcp`  
+**MCP Protocol**: JSON-RPC 2.0 over stdio\
+**Transport**: Server-Sent Events (SSE) over HTTPS\
+**API Endpoint**: `https://bun.com/docs/mcp`\
 **Binary Source**: Auto-downloaded from [GitHub Releases][releases]
 
 For detailed architecture information, see [ARCHITECTURE.md][architecture].
@@ -158,9 +161,9 @@ For detailed architecture information, see [ARCHITECTURE.md][architecture].
 
 ### Extension won't enable
 
-**Check Zed log**:  
-<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (macOS) or  
-<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (Linux/Windows)  
+**Check Zed log**:\
+<kbd>Cmd</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (macOS) or\
+<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> (Linux/Windows)\
 → "zed: open log"
 
 **Common issues**:
@@ -173,10 +176,13 @@ For detailed architecture information, see [ARCHITECTURE.md][architecture].
 
 **Find the binary location**:
 
-The extension stores the binary in Zed's extension work directory. The exact path varies by platform:
+The extension stores the binary in Zed's extension work directory. The exact
+path varies by platform:
 
-- **Linux**: `~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/`
-- **macOS**: `~/Library/Application Support/Zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/`
+- **Linux**:
+  `~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/`
+- **macOS**:
+  `~/Library/Application Support/Zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/`
 - **Windows**: `%APPDATA%\Zed\extensions\work\bun-docs-mcp\bun-docs-mcp-proxy\`
 
 **Verify binary exists** (Linux/macOS):
@@ -211,7 +217,7 @@ See [ARCHITECTURE.md][architecture] for migration history and technical details.
 
 Contributions welcome!
 
-**Proxy implementation**: [kjanat/bun-docs-mcp-proxy][bun-docs-mcp-proxy]  
+**Proxy implementation**: [kjanat/bun-docs-mcp-proxy][bun-docs-mcp-proxy]\
 **Extension**: This repository
 
 ## License
@@ -227,14 +233,18 @@ MIT - See [LICENSE][license]
 
 ---
 
-**Ready to search Bun docs in Zed!** Install the extension and start asking questions. 🚀
+**Ready to search Bun docs in Zed!** Install the extension and start asking
+questions. 🚀
 
+[architecture]: https://github.com/kjanat/bun-docs-mcp-zed/blob/master/ARCHITECTURE.md
+[badge:rust-ci]: https://github.com/kjanat/bun-docs-mcp-zed/actions/workflows/rust-ci.yml/badge.svg
 [bun-docs-mcp-proxy]: https://github.com/kjanat/bun-docs-mcp-proxy
-[releases]: https://github.com/kjanat/bun-docs-mcp-proxy/releases
 [bun-mcp]: https://bun.com/docs/mcp
-[mcp]: https://modelcontextprotocol.io
 [bun.sh]: https://bun.sh
-[zed.dev]: https://zed.dev
-[license]: ./LICENSE
-[architecture]: ./ARCHITECTURE.md
+[license]: https://github.com/kjanat/bun-docs-mcp-zed/blob/master/LICENSE
+[mcp]: https://modelcontextprotocol.io
+[releases]: https://github.com/kjanat/bun-docs-mcp-proxy/releases
 [rust-ci]: https://github.com/kjanat/bun-docs-mcp-zed/actions/workflows/rust-ci.yml
+[zed.dev]: https://zed.dev
+
+<!--markdownlint-disable-file no-inline-html-->

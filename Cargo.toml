@@ -1,21 +1,21 @@
 [package]
-name = "bun-docs-mcp-zed"
-version = "0.1.1"
-edition = "2021"
+name        = "bun-docs-mcp-zed"
+version     = "0.1.1"
+edition     = "2024"
 description = "Bun Docs MCP extension for Zed"
-license = "MIT"
+license     = "MIT"
 
 [lib]
 crate-type = ["cdylib"]
-path = "src/lib.rs"
+path       = "src/lib.rs"
 
 [dependencies]
-semver = "1.0.27"
+semver            = "1"
 zed_extension_api = "0.7.0"
 
 [profile.release]
-opt-level = "z"
-strip = true
-lto = true
-panic = "abort"
+opt-level     = "z"
+strip         = true
+lto           = true
+panic         = "abort"
 codegen-units = 1

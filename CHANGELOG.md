@@ -6,8 +6,10 @@ All notable changes to the Bun Docs MCP extension for Zed.
 
 ### Fixed
 
-- **Platform Detection Bug**: Fixed "Unsupported platform: wasm32" error by migrating from `std::env::consts` to `zed::current_platform()`
-  - `std::env::consts::OS` returns `"wasm32"` when running as WASM, breaking platform detection
+- **Platform Detection Bug**: Fixed "Unsupported platform: wasm32" error by
+  migrating from `std::env::consts` to `zed::current_platform()`
+  - `std::env::consts::OS` returns `"wasm32"` when running as WASM, breaking
+    platform detection
   - `zed::current_platform()` correctly returns the host OS and architecture
   - Fixes binary download failures on all platforms
 
@@ -16,16 +18,19 @@ All notable changes to the Bun Docs MCP extension for Zed.
 - **Code Organization**: Extracted platform-specific archive names to constants
   - Reduces duplication between implementation and tests
   - Improves maintainability and reduces risk of typos
-  - Constants: `ARCHIVE_LINUX_X64`, `ARCHIVE_LINUX_ARM64`, `ARCHIVE_MACOS_X64`, `ARCHIVE_MACOS_ARM64`, `ARCHIVE_WINDOWS_X64`, `ARCHIVE_WINDOWS_ARM64`
+  - Constants: `ARCHIVE_LINUX_X64`, `ARCHIVE_LINUX_ARM64`, `ARCHIVE_MACOS_X64`,
+    `ARCHIVE_MACOS_ARM64`, `ARCHIVE_WINDOWS_X64`, `ARCHIVE_WINDOWS_ARM64`
 
 - **Test Strategy**: Updated tests to acknowledge WASM runtime limitations
   - Platform detection functions require Zed's WASM runtime
-  - Tests now validate patterns and constants instead of actual platform detection
+  - Tests now validate patterns and constants instead of actual platform
+    detection
   - Added clear documentation about testing limitations
 
 ### Added
 
-- **Documentation**: Created comprehensive `TESTING.md` with manual testing procedures
+- **Documentation**: Created comprehensive `TESTING.md` with manual testing
+  procedures
   - Platform detection verification steps
   - Binary download verification
   - Troubleshooting common issues

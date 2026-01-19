@@ -1,14 +1,19 @@
 # Testing Guide
 
-This document describes how to test the Bun Docs MCP extension for Zed, including manual testing procedures and troubleshooting steps.
+This document describes how to test the Bun Docs MCP extension for Zed,
+including manual testing procedures and troubleshooting steps.
 
 ## Testing Limitations
 
-The extension uses `zed::current_platform()` from the Zed Extension API, which only works within Zed's WASM runtime environment. This means:
+The extension uses `zed::current_platform()` from the Zed Extension API, which
+only works within Zed's WASM runtime environment. This means:
 
-- ✅ **Unit tests** verify logic that doesn't depend on the Zed runtime (version parsing, semver comparison, path construction, etc.)
-- ❌ **Unit tests cannot** verify platform detection or binary download behavior
-- ✅ **Integration tests** must be performed manually by installing the extension in Zed
+- :white_check_mark: **Unit tests** verify logic that doesn't depend on the Zed
+  runtime (version parsing, semver comparison, path construction, etc.)
+- :x: **Unit tests cannot** verify platform detection or binary download
+  behavior
+- :white_check_mark: **Integration tests** must be performed manually by
+  installing the extension in Zed
 
 ## Manual Testing Procedure
 
@@ -22,7 +27,7 @@ cargo build --target wasm32-wasip2 --release
 
 **Expected output:**
 
-```
+```console
 Compiling bun-docs-mcp-zed v0.1.0
 Finished `release` profile [optimized] target(s) in X.XXs
 ```
@@ -51,7 +56,8 @@ ls -lh target/wasm32-wasip2/release/bun_docs_mcp_zed.wasm
 
 ### 3. Verify Binary Download
 
-The extension should automatically download the platform-specific binary on first use.
+The extension should automatically download the platform-specific binary on
+first use.
 
 #### Check Expected Binary Location
 
@@ -103,6 +109,7 @@ The extension provides a Model Context Protocol server for Bun documentation.
 
 1. Open Zed settings: <kbd>Cmd/Ctrl</kbd>+<kbd>,</kbd>
 2. Add context server configuration:
+
    ```json
    {
      "context_servers": {
@@ -130,7 +137,8 @@ The extension provides a Model Context Protocol server for Bun documentation.
 
 ### 5. Verify Platform Detection
 
-The extension should detect your platform correctly and download the appropriate binary.
+The extension should detect your platform correctly and download the appropriate
+binary.
 
 #### Platform Detection Test Matrix
 
@@ -192,7 +200,8 @@ The extension checks for updates every 24 hours.
    rm -rf ~/Library/Application\ Support/Zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/
    ```
 
-2. Reload Zed extensions: <kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> → "zed: reload extensions"
+2. Reload Zed extensions: <kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd> →
+   "zed: reload extensions"
 
 3. Verify binary re-downloads automatically
 
@@ -219,7 +228,8 @@ The extension checks for updates every 24 hours.
 
 1. Check your platform: `uname -m` and `uname -s`
 2. Verify it's in the supported list (see Platform Detection Test Matrix above)
-3. If supported but still failing, file an issue: https://github.com/kjanat/bun-docs-mcp-zed/issues
+3. If supported but still failing, file an issue:
+   https://github.com/kjanat/bun-docs-mcp-zed/issues
 
 ---
 
@@ -236,7 +246,8 @@ The extension checks for updates every 24 hours.
 **Solution:**
 
 1. Check internet connection
-2. Verify GitHub is accessible: https://github.com/kjanat/bun-docs-mcp-proxy/releases
+2. Verify GitHub is accessible:
+   https://github.com/kjanat/bun-docs-mcp-proxy/releases
 3. Check Zed logs for specific error message
 4. Wait a few minutes and try reloading extensions
 
@@ -302,7 +313,8 @@ Use this checklist when testing the extension:
 
 ### Build & Installation
 
-- [ ] Extension builds successfully with `cargo build --target wasm32-wasip2 --release`
+- [ ] Extension builds successfully with
+      `cargo build --target wasm32-wasip2 --release`
 - [ ] WASM binary exists at `target/wasm32-wasip2/release/bun_docs_mcp_zed.wasm`
 - [ ] Extension installs as dev extension in Zed without errors
 - [ ] No errors in Zed log panel after installation
@@ -351,7 +363,8 @@ When reporting issues, please include:
 2. **Extension information:**
    - Extension version from `extension.toml`
    - Build command used
-   - WASM binary hash: `shasum -a 256 target/wasm32-wasip2/release/bun_docs_mcp_zed.wasm`
+   - WASM binary hash:
+     `shasum -a 256 target/wasm32-wasip2/release/bun_docs_mcp_zed.wasm`
 
 3. **Logs:**
    - Complete Zed log output from the log panel
@@ -368,7 +381,10 @@ When reporting issues, please include:
 
 ## Additional Resources
 
-- **Zed Extension Development:** https://zed.dev/docs/extensions/developing-extensions
+- **Zed Extension Development:**
+  https://zed.dev/docs/extensions/developing-extensions
 - **MCP Server Extensions:** https://zed.dev/docs/extensions/mcp-extensions
 - **Binary Repository:** https://github.com/kjanat/bun-docs-mcp-proxy
 - **Extension API Reference:** https://docs.rs/zed_extension_api/
+
+<!--markdownlint-disable-file no-inline-html no-bare-urls-->

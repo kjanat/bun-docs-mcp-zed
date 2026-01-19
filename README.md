@@ -4,7 +4,23 @@
 
 Search Bun documentation directly in Zed using the Model Context Protocol (MCP).
 
-**Pure Rust implementation** with zero runtime dependencies.
+> [!IMPORTANT]
+> This extension will be deprecated in the future.\
+> Zed started supporting remote MCP servers since
+> https://github.com/zed-industries/zed/pull/39021, released in Zed [v0.214.5].\
+> Please use the official remote server directly:
+>
+> ```jsonc
+> {
+>   "context_servers": {
+>     "bun-docs": {
+>       "url": "https://bun.com/docs/mcp",
+>       "enabled": true,
+>       "headers": {},
+>     },
+>   },
+> }
+> ```
 
 ## Features
 
@@ -222,7 +238,7 @@ Contributions welcome!
 
 ## License
 
-MIT - See [LICENSE][license]
+[MIT][license]
 
 ## Credits
 
@@ -246,5 +262,6 @@ questions. 🚀
 [releases]: https://github.com/kjanat/bun-docs-mcp-proxy/releases
 [rust-ci]: https://github.com/kjanat/bun-docs-mcp-zed/actions/workflows/rust-ci.yml
 [zed.dev]: https://zed.dev
+[v0.214.5]: https://github.com/zed-industries/zed/releases/tag/v0.214.5
 
-<!--markdownlint-disable-file no-inline-html-->
+<!--markdownlint-disable-file no-inline-html no-bare-urls-->

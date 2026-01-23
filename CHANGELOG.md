@@ -46,6 +46,17 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ### Fixed
 
+- **Versioned Directories**: Binary now extracts to versioned directory
+  (`bun-docs-mcp-proxy/v0.3.0/`) ensuring version bumps trigger re-download
+- **Sandbox Compatibility**: Remove `current_dir()` usage, use relative paths
+  only for Zed extension sandbox compatibility
+- **Hard Error on Invalid Settings**: Settings parse errors now return `Err()`
+  with serde message instead of silent fallback to defaults
+- **Settings Load Errors**: Surface errors from
+  `ContextServerSettings::for_project()` instead of silently ignoring
+- **Binary Validation**: Add sanity checks verifying binary `is_file()` and
+  `len() > 0` before attempting execution
+- **Empty Path Validation**: Return error if user provides empty `path` setting
 - Trim whitespace from default settings content
 
 ## [0.1.1] - 2025-11-03

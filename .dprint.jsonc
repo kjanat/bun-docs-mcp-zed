@@ -19,7 +19,7 @@
       },
     ],
   },
-  "excludes": ["**/node_modules", "**/*.lock", "**/target"],
+  "excludes": ["**/node_modules", "**/*.lock", "**/target", "configuration/installation_instructions.md"],
   "plugins": [
     "https://plugins.dprint.dev/typescript-0.95.13.wasm",
     "https://plugins.dprint.dev/json-0.21.1.wasm",

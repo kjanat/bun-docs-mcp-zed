@@ -1,7 +1,13 @@
 {
-  "formatter": [
-    { "external": { "command": "bunx", "arguments": ["dprint", "fmt", "--stdin", "{buffer_path}"] } }
-  ],
+  "formatter": [{ "external": { "command": "bunx", "arguments": ["dprint", "fmt", "--stdin", "{buffer_path}"] } }],
   "prettier": { "allowed": false },
-  "languages": { "YAML": { "wrap_guides": [120] } }
+  "languages": { "YAML": { "wrap_guides": [120] } },
+  "context_servers": {
+    "bun-docs-mcp": {
+      "enabled": true,
+      "settings": {
+        "path": "/home/kjanat/projects/bun-docs-mcp-proxy/target/release/bun-docs-mcp-proxy"
+      }
+    }
+  }
 }

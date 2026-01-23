@@ -55,7 +55,8 @@ cargo test
 
 ## Git Restrictions
 
-- **NEVER** create, push, modify, or delete git tags unless the user explicitly requests it
+- **NEVER** create, push, modify, or delete git tags unless the user explicitly
+  requests it
 - Only push commits when explicitly asked
 
 <!--link-definitions-->

@@ -53,6 +53,11 @@ cargo test
 - **Testing**: Unit tests in src/lib.rs
 - **Formatting**: cargo fmt (enforced by pre-commit)
 
+## Git Restrictions
+
+- **NEVER** create, push, modify, or delete git tags unless the user explicitly requests it
+- Only push commits when explicitly asked
+
 <!--link-definitions-->
 
 [ARCHITECTURE.md]: https://github.com/kjanat/bun-docs-mcp-zed/blob/master/ARCHITECTURE.md

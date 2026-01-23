@@ -21,6 +21,9 @@ Search Bun documentation directly in Zed using the Model Context Protocol (MCP).
 >   },
 > }
 > ```
+>
+> It is unfortunately not (yet) possible for extension authors to provide custom
+> server URLs in the extension manifest.
 
 ## Features
 

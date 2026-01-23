@@ -1,20 +1,22 @@
 use schemars::JsonSchema;
 use serde::Deserialize;
 use std::fs;
-use std::path::PathBuf;
 use zed_extension_api::{
-    self as zed, Command, ContextServerConfiguration, ContextServerId, Project, Result, serde_json,
-    settings::ContextServerSettings,
+    self as zed, serde_json, settings::ContextServerSettings, Command, ContextServerConfiguration,
+    ContextServerId, Project, Result,
 };
 
 // Context server identifier that must match extension.toml
 const CONTEXT_SERVER_ID: &str = "bun-docs-mcp";
 
-// GitHub repository and directory names for the proxy binary
+// GitHub repository for the proxy binary
 const PROXY_REPO: &str = "kjanat/bun-docs-mcp-proxy";
+
+// Base directory for proxy binaries (version subdirs go inside)
 const PROXY_DIR: &str = "bun-docs-mcp-proxy";
 
 // Pinned proxy binary version - update this when releasing new extension version
+// Binaries are stored in versioned directories, so bumping this triggers re-download
 const PROXY_VERSION: &str = "v0.3.0";
 
 // Platform-specific archive names for binary distribution
@@ -25,10 +27,13 @@ const ARCHIVE_MACOS_ARM64: &str = "bun-docs-mcp-proxy-macos-aarch64.tar.gz";
 const ARCHIVE_WINDOWS_X64: &str = "bun-docs-mcp-proxy-windows-x86_64.zip";
 const ARCHIVE_WINDOWS_ARM64: &str = "bun-docs-mcp-proxy-windows-aarch64.zip";
 
+// Binary name (without path)
+const BINARY_NAME_UNIX: &str = "bun-docs-mcp-proxy";
+const BINARY_NAME_WINDOWS: &str = "bun-docs-mcp-proxy.exe";
+
 /// Custom settings for the Bun Docs MCP server.
 /// Parsed from the `settings` JSON blob in Zed's context server configuration.
 #[derive(Debug, Deserialize, JsonSchema, Default)]
-#[allow(dead_code)]
 struct BunDocsMcpSettings {
     /// Path to a custom bun-docs-mcp-proxy binary.
     /// If not set, the extension will automatically download and manage the binary.
@@ -36,72 +41,93 @@ struct BunDocsMcpSettings {
 }
 
 struct BunDocsMcpExtension {
+    /// Cached relative path to the binary (within extension work directory)
     cached_binary_path: Option<String>,
+}
+
+/// Returns the archive name for a given OS and architecture.
+/// This is a pure function that can be tested without Zed runtime.
+fn archive_name_for(os: zed::Os, arch: zed::Architecture) -> Result<&'static str> {
+    match (os, arch) {
+        (zed::Os::Linux, zed::Architecture::X8664) => Ok(ARCHIVE_LINUX_X64),
+        (zed::Os::Linux, zed::Architecture::Aarch64) => Ok(ARCHIVE_LINUX_ARM64),
+        (zed::Os::Mac, zed::Architecture::X8664) => Ok(ARCHIVE_MACOS_X64),
+        (zed::Os::Mac, zed::Architecture::Aarch64) => Ok(ARCHIVE_MACOS_ARM64),
+        (zed::Os::Windows, zed::Architecture::X8664) => Ok(ARCHIVE_WINDOWS_X64),
+        (zed::Os::Windows, zed::Architecture::Aarch64) => Ok(ARCHIVE_WINDOWS_ARM64),
+        _ => Err(format!(
+            "Unsupported platform: {os:?} {arch:?} - please file an issue at https://github.com/kjanat/bun-docs-mcp-zed/issues"
+        )),
+    }
+}
+
+/// Returns the binary filename for a given OS.
+/// This is a pure function that can be tested without Zed runtime.
+fn binary_name_for(os: zed::Os) -> &'static str {
+    if os == zed::Os::Windows {
+        BINARY_NAME_WINDOWS
+    } else {
+        BINARY_NAME_UNIX
+    }
+}
+
+/// Constructs the relative path where the binary should be located.
+/// Path format: `{PROXY_DIR}/{version}/{binary_name}`
+/// This is relative to the extension's work directory.
+fn binary_rel_path(version: &str, os: zed::Os) -> String {
+    let binary_name = binary_name_for(os);
+    format!("{PROXY_DIR}/{version}/{binary_name}")
+}
+
+/// Constructs the extraction directory path for downloads.
+/// Path format: `{PROXY_DIR}/{version}`
+fn extraction_dir(version: &str) -> String {
+    format!("{PROXY_DIR}/{version}")
 }
 
 impl BunDocsMcpExtension {
     /// Returns the GitHub release archive name for the current platform.
     fn get_platform_archive_name() -> Result<&'static str> {
         let (os, arch) = zed::current_platform();
-
-        match (os, arch) {
-            (zed::Os::Linux, zed::Architecture::X8664) => Ok(ARCHIVE_LINUX_X64),
-            (zed::Os::Linux, zed::Architecture::Aarch64) => Ok(ARCHIVE_LINUX_ARM64),
-            (zed::Os::Mac, zed::Architecture::X8664) => Ok(ARCHIVE_MACOS_X64),
-            (zed::Os::Mac, zed::Architecture::Aarch64) => Ok(ARCHIVE_MACOS_ARM64),
-            (zed::Os::Windows, zed::Architecture::X8664) => Ok(ARCHIVE_WINDOWS_X64),
-            (zed::Os::Windows, zed::Architecture::Aarch64) => Ok(ARCHIVE_WINDOWS_ARM64),
-            _ => Err(format!(
-                "Unsupported platform: {os:?} {arch:?} - please file an issue at https://github.com/kjanat/bun-docs-mcp-zed/issues"
-            )),
-        }
+        archive_name_for(os, arch)
     }
 
-    /// Returns the binary filename for the current platform.
-    fn get_binary_name() -> &'static str {
+    /// Returns the relative binary path for the current platform and pinned version.
+    fn get_binary_rel_path() -> String {
         let (os, _) = zed::current_platform();
-        if os == zed::Os::Windows {
-            "bun-docs-mcp-proxy.exe"
-        } else {
-            "bun-docs-mcp-proxy"
-        }
+        binary_rel_path(PROXY_VERSION, os)
     }
 
     /// Ensures the MCP server binary is available, downloading if necessary.
+    /// Returns a relative path within the extension work directory.
     fn ensure_binary(&mut self) -> Result<String> {
         // Return cached path if available
         if let Some(cached) = &self.cached_binary_path {
             return Ok(cached.clone());
         }
 
-        let work_dir = std::env::current_dir()
-            .map(|p| p.to_string_lossy().to_string())
-            .map_err(|e| format!("Failed to get work directory: {e}"))?;
+        let binary_path = Self::get_binary_rel_path();
 
-        let binary_name = Self::get_binary_name();
-        let binary_path = PathBuf::from(&work_dir).join(PROXY_DIR).join(binary_name);
-
-        let binary_path_str = binary_path
-            .to_str()
-            .ok_or_else(|| "Binary path contains invalid UTF-8".to_string())?
-            .to_string();
-
-        // Check if binary already exists
+        // Check if binary already exists and is valid
         match fs::metadata(&binary_path) {
             Ok(metadata) => {
-                if metadata.is_file() {
-                    self.cached_binary_path = Some(binary_path_str.clone());
-                    return Ok(binary_path_str);
+                if !metadata.is_file() {
+                    return Err(format!(
+                        "Binary path exists but is not a file: {binary_path}"
+                    ));
                 }
-                return Err(format!(
-                    "Binary path exists but is not a file: {binary_path_str}"
-                ));
+                if metadata.len() == 0 {
+                    return Err(format!("Binary file is empty: {binary_path}"));
+                }
+                // Binary exists and is valid
+                self.cached_binary_path = Some(binary_path.clone());
+                return Ok(binary_path);
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
                 // Binary doesn't exist, proceed with download
             }
             Err(e) => {
-                return Err(format!("Failed to check binary at {binary_path_str}: {e}"));
+                return Err(format!("Failed to check binary at {binary_path}: {e}"));
             }
         }
 
@@ -122,20 +148,23 @@ impl BunDocsMcpExtension {
                 )
             })?;
 
-        // Download and extract the archive
+        // Determine file type for extraction
         let archive_path = std::path::Path::new(archive_name);
         let file_type = if archive_path
             .extension()
             .is_some_and(|ext| ext.eq_ignore_ascii_case("zip"))
         {
             zed::DownloadedFileType::Zip
-        } else if archive_name.to_ascii_lowercase().ends_with(".tar.gz") {
+        } else if archive_name.ends_with(".tar.gz") {
+            // .tar.gz is a compound extension, check as string
             zed::DownloadedFileType::GzipTar
         } else {
             zed::DownloadedFileType::Uncompressed
         };
 
-        zed::download_file(&asset.download_url, PROXY_DIR, file_type).map_err(|e| {
+        // Download and extract to versioned directory
+        let extract_dir = extraction_dir(PROXY_VERSION);
+        zed::download_file(&asset.download_url, &extract_dir, file_type).map_err(|e| {
             format!(
                 "Failed to download {} from {}: {}",
                 archive_name, asset.download_url, e
@@ -143,19 +172,26 @@ impl BunDocsMcpExtension {
         })?;
 
         // Verify the binary was extracted correctly
-        if !binary_path.exists() {
-            return Err(format!(
-                "Binary not found at expected path after extraction: {binary_path_str}"
-            ));
+        match fs::metadata(&binary_path) {
+            Ok(metadata) => {
+                if !metadata.is_file() {
+                    return Err(format!("Extracted path is not a file: {binary_path}"));
+                }
+                if metadata.len() == 0 {
+                    return Err(format!("Extracted binary is empty: {binary_path}"));
+                }
+            }
+            Err(_) => {
+                return Err(format!("Binary not found after extraction: {binary_path}"));
+            }
         }
 
         // Make it executable (Unix platforms)
-        #[cfg(unix)]
-        zed::make_file_executable(&binary_path_str)
-            .map_err(|e| format!("Failed to make {binary_path_str} executable: {e}"))?;
+        zed::make_file_executable(&binary_path)
+            .map_err(|e| format!("Failed to make {binary_path} executable: {e}"))?;
 
-        self.cached_binary_path = Some(binary_path_str.clone());
-        Ok(binary_path_str)
+        self.cached_binary_path = Some(binary_path.clone());
+        Ok(binary_path)
     }
 }
 
@@ -173,20 +209,34 @@ impl zed::Extension for BunDocsMcpExtension {
     ) -> Result<Command> {
         match context_server_id.as_ref() {
             CONTEXT_SERVER_ID => {
-                // Get Zed's context server settings
-                let settings = ContextServerSettings::for_project(CONTEXT_SERVER_ID, project).ok();
+                // Get Zed's context server settings - surface errors instead of swallowing
+                let settings = ContextServerSettings::for_project(CONTEXT_SERVER_ID, project)
+                    .map_err(|e| format!("Failed to load context server settings: {e}"))?;
 
-                // Parse our custom settings from the settings JSON blob
-                let custom_settings: Option<BunDocsMcpSettings> = settings
-                    .as_ref()
-                    .and_then(|s| s.settings.as_ref())
-                    .and_then(|v| serde_json::from_value(v.clone()).ok());
+                // Parse custom settings from the settings JSON blob
+                // If settings exist but are invalid, return a hard error
+                let custom_settings: Option<BunDocsMcpSettings> = if let Some(ref value) =
+                    settings.settings
+                {
+                    Some(
+                        serde_json::from_value(value.clone())
+                            .map_err(|e| format!("Invalid {CONTEXT_SERVER_ID} settings: {e}"))?,
+                    )
+                } else {
+                    None
+                };
 
                 // Determine binary path: user-specified or auto-download
-                // Note: Cannot validate user paths - WASM sandbox has no filesystem access
-                // outside extension directory. Invalid paths fail at Zed's process execution.
                 let binary_path = match custom_settings.as_ref().and_then(|s| s.path.as_ref()) {
-                    Some(path) => path.clone(),
+                    Some(path) => {
+                        // Basic validation for user-provided path
+                        if path.trim().is_empty() {
+                            return Err(
+                                "Custom binary path is empty - remove 'path' setting or provide a valid path".to_string()
+                            );
+                        }
+                        path.clone()
+                    }
                     None => self.ensure_binary()?,
                 };
 
@@ -234,8 +284,75 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_platform_archive_names() {
-        let expected_archives = vec![
+    fn test_archive_name_for() {
+        // Test all supported platforms
+        assert_eq!(
+            archive_name_for(zed::Os::Linux, zed::Architecture::X8664).unwrap(),
+            ARCHIVE_LINUX_X64
+        );
+        assert_eq!(
+            archive_name_for(zed::Os::Linux, zed::Architecture::Aarch64).unwrap(),
+            ARCHIVE_LINUX_ARM64
+        );
+        assert_eq!(
+            archive_name_for(zed::Os::Mac, zed::Architecture::X8664).unwrap(),
+            ARCHIVE_MACOS_X64
+        );
+        assert_eq!(
+            archive_name_for(zed::Os::Mac, zed::Architecture::Aarch64).unwrap(),
+            ARCHIVE_MACOS_ARM64
+        );
+        assert_eq!(
+            archive_name_for(zed::Os::Windows, zed::Architecture::X8664).unwrap(),
+            ARCHIVE_WINDOWS_X64
+        );
+        assert_eq!(
+            archive_name_for(zed::Os::Windows, zed::Architecture::Aarch64).unwrap(),
+            ARCHIVE_WINDOWS_ARM64
+        );
+    }
+
+    #[test]
+    fn test_archive_name_for_unsupported() {
+        // Test unsupported platform returns error
+        let result = archive_name_for(zed::Os::Linux, zed::Architecture::X86);
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("Unsupported platform"));
+    }
+
+    #[test]
+    fn test_binary_name_for() {
+        assert_eq!(binary_name_for(zed::Os::Linux), BINARY_NAME_UNIX);
+        assert_eq!(binary_name_for(zed::Os::Mac), BINARY_NAME_UNIX);
+        assert_eq!(binary_name_for(zed::Os::Windows), BINARY_NAME_WINDOWS);
+    }
+
+    #[test]
+    fn test_binary_rel_path() {
+        assert_eq!(
+            binary_rel_path("v0.3.0", zed::Os::Linux),
+            "bun-docs-mcp-proxy/v0.3.0/bun-docs-mcp-proxy"
+        );
+        assert_eq!(
+            binary_rel_path("v0.3.0", zed::Os::Mac),
+            "bun-docs-mcp-proxy/v0.3.0/bun-docs-mcp-proxy"
+        );
+        assert_eq!(
+            binary_rel_path("v0.3.0", zed::Os::Windows),
+            "bun-docs-mcp-proxy/v0.3.0/bun-docs-mcp-proxy.exe"
+        );
+    }
+
+    #[test]
+    fn test_extraction_dir() {
+        assert_eq!(extraction_dir("v0.3.0"), "bun-docs-mcp-proxy/v0.3.0");
+        assert_eq!(extraction_dir("v1.0.0"), "bun-docs-mcp-proxy/v1.0.0");
+    }
+
+    #[test]
+    fn test_archive_extensions_valid() {
+        // All archives should have valid extensions
+        let archives = [
             ARCHIVE_LINUX_X64,
             ARCHIVE_LINUX_ARM64,
             ARCHIVE_MACOS_X64,
@@ -244,60 +361,18 @@ mod tests {
             ARCHIVE_WINDOWS_ARM64,
         ];
 
-        for archive in expected_archives {
-            assert!(
-                archive.contains("bun-docs-mcp-proxy-"),
-                "Archive name should start with bun-docs-mcp-proxy-"
-            );
+        for archive in archives {
             assert!(
                 archive.ends_with(".tar.gz") || archive.ends_with(".zip"),
-                "Archive should have valid extension"
+                "Archive {archive} should have .tar.gz or .zip extension"
             );
         }
-    }
 
-    #[test]
-    fn test_binary_names() {
-        let expected_unix = "bun-docs-mcp-proxy";
-        let expected_windows = "bun-docs-mcp-proxy.exe";
-
-        assert!(!expected_unix.is_empty());
-        assert!(!expected_windows.is_empty());
-        assert!(expected_windows.ends_with(".exe"));
-    }
-
-    #[test]
-    fn test_binary_path_construction() {
-        let work_dir = if cfg!(windows) {
-            "C:\\test\\work"
-        } else {
-            "/test/work"
-        };
-        let binary_name = "bun-docs-mcp-proxy";
-
-        let path = PathBuf::from(work_dir)
-            .join("bun-docs-mcp-proxy")
-            .join(binary_name);
-
-        let path_str = path.to_str().unwrap();
-
-        assert!(path_str.contains("test"));
-        assert!(path_str.contains("work"));
-        assert!(path_str.contains("bun-docs-mcp-proxy"));
-
-        if cfg!(windows) {
-            assert_eq!(
-                path_str,
-                "C:\\test\\work\\bun-docs-mcp-proxy\\bun-docs-mcp-proxy"
-            );
-        } else {
-            assert_eq!(path_str, "/test/work/bun-docs-mcp-proxy/bun-docs-mcp-proxy");
-        }
-    }
-
-    #[test]
-    fn test_context_server_id_constant() {
-        assert_eq!(CONTEXT_SERVER_ID, "bun-docs-mcp");
+        // Windows uses .zip, others use .tar.gz
+        assert!(ARCHIVE_WINDOWS_X64.ends_with(".zip"));
+        assert!(ARCHIVE_WINDOWS_ARM64.ends_with(".zip"));
+        assert!(ARCHIVE_LINUX_X64.ends_with(".tar.gz"));
+        assert!(ARCHIVE_MACOS_ARM64.ends_with(".tar.gz"));
     }
 
     #[test]
@@ -319,16 +394,13 @@ mod tests {
     }
 
     #[test]
-    fn test_constants_defined() {
+    fn test_constants_consistency() {
+        // Verify constants are consistent
         assert_eq!(CONTEXT_SERVER_ID, "bun-docs-mcp");
         assert_eq!(PROXY_REPO, "kjanat/bun-docs-mcp-proxy");
         assert_eq!(PROXY_DIR, "bun-docs-mcp-proxy");
-
-        let archives = vec![ARCHIVE_LINUX_X64, ARCHIVE_MACOS_ARM64, ARCHIVE_WINDOWS_X64];
-        for archive in archives {
-            assert!(archive.contains("bun-docs-mcp-proxy-"));
-            assert!(archive.ends_with(".tar.gz") || archive.ends_with(".zip"));
-        }
+        assert_eq!(BINARY_NAME_UNIX, "bun-docs-mcp-proxy");
+        assert_eq!(BINARY_NAME_WINDOWS, "bun-docs-mcp-proxy.exe");
     }
 
     #[test]
@@ -338,5 +410,31 @@ mod tests {
         assert!(json.contains("path"));
         // Should NOT contain nested "command" anymore
         assert!(!json.contains("command"));
+    }
+
+    #[test]
+    fn test_settings_deserialization() {
+        // Valid settings
+        let json = r#"{"path": "/custom/binary"}"#;
+        let settings: BunDocsMcpSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.path, Some("/custom/binary".to_string()));
+
+        // Empty settings (all optional)
+        let json = r#"{}"#;
+        let settings: BunDocsMcpSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.path, None);
+
+        // Null path
+        let json = r#"{"path": null}"#;
+        let settings: BunDocsMcpSettings = serde_json::from_str(json).unwrap();
+        assert_eq!(settings.path, None);
+    }
+
+    #[test]
+    fn test_settings_deserialization_invalid() {
+        // Wrong type for path should fail
+        let json = r#"{"path": 123}"#;
+        let result: std::result::Result<BunDocsMcpSettings, _> = serde_json::from_str(json);
+        assert!(result.is_err());
     }
 }

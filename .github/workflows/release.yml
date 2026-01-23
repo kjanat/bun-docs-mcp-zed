@@ -1,7 +1,7 @@
+# yaml-language-server: $schema=https://www.schemastore.org/github-workflow.json
+---
 name: Release Zed Extension
-
 on: { push: { tags: ["v*"] } }
-
 jobs:
   release-extension:
     name: Release Bun Docs MCP Extension
@@ -17,7 +17,7 @@ jobs:
 
             Bun Docs MCP extension for Zed - provides documentation lookup via MCP.
 
-            **Changes:** https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md  
+            **Changes:** https://github.com/${{ github.repository }}/blob/${{ github.ref_name }}/CHANGELOG.md\
             **Release:** https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
         env:
           COMMITTER_TOKEN: ${{ secrets.COMMITTER_TOKEN }}

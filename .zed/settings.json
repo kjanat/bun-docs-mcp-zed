@@ -1,5 +1,12 @@
 {
-  "formatter": [{ "external": { "command": "bunx", "arguments": ["dprint", "fmt", "--stdin", "{buffer_path}"] } }],
+  "formatter": [
+    {
+      "external": {
+        "command": "bunx",
+        "arguments": ["dprint", "fmt", "--config", ".dprint.jsonc", "--stdin", "{buffer_path}"]
+      }
+    }
+  ],
   "prettier": { "allowed": false },
   "languages": { "YAML": { "wrap_guides": [120] } },
   "context_servers": {

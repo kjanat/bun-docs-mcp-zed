@@ -1,28 +1,17 @@
+# yaml-language-server: $schema=https://www.schemastore.org/github-workflow.json
+---
 name: Rust CI
-
 on:
   push:
     branches: [master]
-    paths:
-      - "src/**/*.rs"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - ".github/workflows/rust-ci.yml"
+    paths: ["src/**/*.rs", "Cargo.toml", "Cargo.lock", ".github/workflows/rust-ci.yml"]
   pull_request:
-    branches: [master, main]
-    paths:
-      - "src/**/*.rs"
-      - "Cargo.toml"
-      - "Cargo.lock"
-      - ".github/workflows/rust-ci.yml"
-
+    branches: [master]
+    paths: ["src/**/*.rs", "Cargo.toml", "Cargo.lock", ".github/workflows/rust-ci.yml"]
 env:
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
-
-permissions:
-  contents: read
-
+permissions: { contents: read }
 jobs:
   check:
     name: Check
@@ -32,8 +21,7 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+        with: { components: "rustfmt, clippy" }
 
       - name: Cache cargo registry
         uses: actions/cache@v5
@@ -97,8 +85,7 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
+        with: { components: rustfmt }
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -111,8 +98,7 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+        with: { components: clippy }
 
       - name: Cache cargo registry
         uses: actions/cache@v5
@@ -143,8 +129,7 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-wasip2
+        with: { targets: wasm32-wasip2 }
 
       - name: Cache cargo registry
         uses: actions/cache@v5
@@ -171,4 +156,4 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: bun-docs-mcp-zed.wasm
-          path: target/wasm32-wasip2/release/bun_docs_mcp_zed.wasm
+          path: target/wasm32-wasip2/release/bun-docs-mcp-proxy

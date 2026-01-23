@@ -1,14 +1,10 @@
+# yaml-language-server: $schema=https://www.schemastore.org/github-workflow.json
+---
 name: Claude Code Review
-
 on:
   pull_request:
     types: [opened, synchronize]
-    # Optional: Only run on specific file changes
-    paths:
-      - "src/**/*.rs"
-      - "Cargo.toml"
-      - "extension.toml"
-
+    paths: ["src/**/*.rs", "Cargo.toml", "extension.toml"]
 jobs:
   claude-review:
     # Optional: Filter by PR author
@@ -17,18 +13,11 @@ jobs:
     #   github.event.pull_request.user.login == 'new-developer' ||
     #   github.event.pull_request.author_association == 'FIRST_TIME_CONTRIBUTOR'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pull-requests: write
-      issues: read
-      id-token: write
-
+    permissions: { contents: read, pull-requests: write, issues: read, id-token: write }
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-
+        with: { fetch-depth: 1 }
       - name: Run Claude Code Review
         id: claude-review
         uses: anthropics/claude-code-action@v1

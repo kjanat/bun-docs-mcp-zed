@@ -1,5 +1,6 @@
+# yaml-language-server: $schema=https://www.schemastore.org/github-workflow.json
+---
 name: Claude Code
-
 on:
   issue_comment:
     types: [created]
@@ -9,7 +10,6 @@ on:
     types: [opened, assigned]
   pull_request_review:
     types: [submitted]
-
 jobs:
   claude:
     if: |
@@ -27,8 +27,7 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
+        with: { fetch-depth: 1 }
 
       - name: Run Claude Code
         id: claude

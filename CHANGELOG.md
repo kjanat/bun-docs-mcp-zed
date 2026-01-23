@@ -7,6 +7,14 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+### Fixed
+
+- **Legacy Binary Cleanup**: Automatically removes pre-0.2.0 non-versioned
+  binaries on first run (once per session)
+- **Corruption Recovery**: Invalid/empty binaries are deleted and re-downloaded
+  instead of returning a hard error
+- **Unix-only chmod**: `make_file_executable` now wrapped with `#[cfg(unix)]`
+
 ## [0.2.0] - 2026-01-23
 
 ### Changed

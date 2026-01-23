@@ -2,8 +2,8 @@ use schemars::JsonSchema;
 use serde::Deserialize;
 use std::fs;
 use zed_extension_api::{
-    self as zed, serde_json, settings::ContextServerSettings, Command, ContextServerConfiguration,
-    ContextServerId, Project, Result,
+    self as zed, Command, ContextServerConfiguration, ContextServerId, Project, Result, serde_json,
+    settings::ContextServerSettings,
 };
 
 // Context server identifier that must match extension.toml
@@ -43,6 +43,8 @@ struct BunDocsMcpSettings {
 struct BunDocsMcpExtension {
     /// Cached relative path to the binary (within extension work directory)
     cached_binary_path: Option<String>,
+    /// Whether we've already attempted to clean up legacy (non-versioned) binaries
+    did_legacy_cleanup: bool,
 }
 
 /// Returns the archive name for a given OS and architecture.
@@ -101,6 +103,20 @@ impl BunDocsMcpExtension {
     /// Ensures the MCP server binary is available, downloading if necessary.
     /// Returns a relative path within the extension work directory.
     fn ensure_binary(&mut self) -> Result<String> {
+        // Clean up legacy non-versioned binary once per session (from pre-0.2.0 installs)
+        if !self.did_legacy_cleanup {
+            self.did_legacy_cleanup = true;
+            let (os, _) = zed::current_platform();
+            let legacy_binary = format!("{PROXY_DIR}/{}", binary_name_for(os));
+            if fs::metadata(&legacy_binary)
+                .map(|m| m.is_file())
+                .unwrap_or(false)
+            {
+                // Best-effort cleanup, ignore errors
+                let _ = fs::remove_file(&legacy_binary);
+            }
+        }
+
         // Return cached path if available
         if let Some(cached) = &self.cached_binary_path {
             return Ok(cached.clone());
@@ -109,26 +125,25 @@ impl BunDocsMcpExtension {
         let binary_path = Self::get_binary_rel_path();
 
         // Check if binary already exists and is valid
-        match fs::metadata(&binary_path) {
-            Ok(metadata) => {
-                if !metadata.is_file() {
-                    return Err(format!(
-                        "Binary path exists but is not a file: {binary_path}"
-                    ));
-                }
-                if metadata.len() == 0 {
-                    return Err(format!("Binary file is empty: {binary_path}"));
-                }
+        let needs_download = match fs::metadata(&binary_path) {
+            Ok(metadata) if metadata.is_file() && metadata.len() > 0 => {
                 // Binary exists and is valid
                 self.cached_binary_path = Some(binary_path.clone());
                 return Ok(binary_path);
             }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-                // Binary doesn't exist, proceed with download
+            Ok(_) => {
+                // Exists but invalid (not a file or empty) - remove and re-download
+                let _ = fs::remove_file(&binary_path);
+                true
             }
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => true,
             Err(e) => {
                 return Err(format!("Failed to check binary at {binary_path}: {e}"));
             }
+        };
+
+        if !needs_download {
+            unreachable!("needs_download should always be true at this point");
         }
 
         // Download from pinned GitHub release
@@ -173,20 +188,21 @@ impl BunDocsMcpExtension {
 
         // Verify the binary was extracted correctly
         match fs::metadata(&binary_path) {
-            Ok(metadata) => {
-                if !metadata.is_file() {
-                    return Err(format!("Extracted path is not a file: {binary_path}"));
-                }
-                if metadata.len() == 0 {
-                    return Err(format!("Extracted binary is empty: {binary_path}"));
-                }
+            Ok(metadata) if metadata.is_file() && metadata.len() > 0 => {
+                // Binary extracted successfully
+            }
+            Ok(_) => {
+                return Err(format!(
+                    "Extracted binary is invalid (not a file or empty): {binary_path}"
+                ));
             }
             Err(_) => {
                 return Err(format!("Binary not found after extraction: {binary_path}"));
             }
         }
 
-        // Make it executable (Unix platforms)
+        // Make it executable (Unix platforms only)
+        #[cfg(unix)]
         zed::make_file_executable(&binary_path)
             .map_err(|e| format!("Failed to make {binary_path} executable: {e}"))?;
 
@@ -199,6 +215,7 @@ impl zed::Extension for BunDocsMcpExtension {
     fn new() -> Self {
         Self {
             cached_binary_path: None,
+            did_legacy_cleanup: false,
         }
     }
 

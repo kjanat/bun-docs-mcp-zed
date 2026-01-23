@@ -211,8 +211,9 @@ impl zed::Extension for BunDocsMcpExtension {
             CONTEXT_SERVER_ID => {
                 let installation_instructions =
                     include_str!("../configuration/installation_instructions.md").to_string();
-                let default_settings =
-                    include_str!("../configuration/default_settings.jsonc").to_string();
+                let default_settings = include_str!("../configuration/default_settings.jsonc")
+                    .trim()
+                    .to_string();
                 let settings_schema =
                     serde_json::to_string(&schemars::schema_for!(BunDocsMcpSettings))
                         .map_err(|e| e.to_string())?;

@@ -33,7 +33,7 @@ cargo test
    ```toml
    [bun-docs-mcp]
    submodule = "extensions/bun-docs-mcp"
-   version   = "0.1.2"
+   version   = "X.X.X"
    ```
 
 4. Run `pnpm sort-extensions`
@@ -58,6 +58,13 @@ cargo test
 - **NEVER** create, push, modify, or delete git tags unless the user explicitly
   requests it
 - Only push commits when explicitly asked
+
+## Habits
+
+Update CHANGELOG.md with your modifications. If a [x.x.x] is the top of the
+CHANGELOG.md, then add a new [Unreleased] section.
+
+Before comitting, make sure to `dprint fmt`.
 
 <!--link-definitions-->
 

@@ -6,49 +6,29 @@ use zed_extension_api::{
     settings::ContextServerSettings,
 };
 
-// Context server identifier that must match extension.toml
 const CONTEXT_SERVER_ID: &str = "bun-docs-mcp";
-
-// GitHub repository for the proxy binary
 const PROXY_REPO: &str = "kjanat/bun-docs-mcp-proxy";
-
-// Base directory for proxy binaries (version subdirs go inside)
 const PROXY_DIR: &str = "bun-docs-mcp-proxy";
-
-// Pinned proxy binary version - update this when releasing new extension version
-// Binaries are stored in versioned directories, so bumping this triggers re-download
 const PROXY_VERSION: &str = "v0.3.0";
-
-// Platform-specific archive names for binary distribution
 const ARCHIVE_LINUX_X64: &str = "bun-docs-mcp-proxy-linux-x86_64.tar.gz";
 const ARCHIVE_LINUX_ARM64: &str = "bun-docs-mcp-proxy-linux-aarch64.tar.gz";
 const ARCHIVE_MACOS_X64: &str = "bun-docs-mcp-proxy-macos-x86_64.tar.gz";
 const ARCHIVE_MACOS_ARM64: &str = "bun-docs-mcp-proxy-macos-aarch64.tar.gz";
 const ARCHIVE_WINDOWS_X64: &str = "bun-docs-mcp-proxy-windows-x86_64.zip";
 const ARCHIVE_WINDOWS_ARM64: &str = "bun-docs-mcp-proxy-windows-aarch64.zip";
-
-// Binary name (without path)
 const BINARY_NAME_UNIX: &str = "bun-docs-mcp-proxy";
 const BINARY_NAME_WINDOWS: &str = "bun-docs-mcp-proxy.exe";
 
-/// Custom settings for the Bun Docs MCP server.
-/// Parsed from the `settings` JSON blob in Zed's context server configuration.
 #[derive(Debug, Deserialize, JsonSchema, Default)]
 struct BunDocsMcpSettings {
-    /// Path to a custom bun-docs-mcp-proxy binary.
-    /// If not set, the extension will automatically download and manage the binary.
     path: Option<String>,
 }
 
 struct BunDocsMcpExtension {
-    /// Cached relative path to the binary (within extension work directory)
     cached_binary_path: Option<String>,
-    /// Whether we've already attempted to clean up legacy (non-versioned) binaries
     did_legacy_cleanup: bool,
 }
 
-/// Returns the archive name for a given OS and architecture.
-/// This is a pure function that can be tested without Zed runtime.
 fn archive_name_for(os: zed::Os, arch: zed::Architecture) -> Result<&'static str> {
     match (os, arch) {
         (zed::Os::Linux, zed::Architecture::X8664) => Ok(ARCHIVE_LINUX_X64),
@@ -63,8 +43,6 @@ fn archive_name_for(os: zed::Os, arch: zed::Architecture) -> Result<&'static str
     }
 }
 
-/// Returns the binary filename for a given OS.
-/// This is a pure function that can be tested without Zed runtime.
 fn binary_name_for(os: zed::Os) -> &'static str {
     if os == zed::Os::Windows {
         BINARY_NAME_WINDOWS
@@ -73,37 +51,68 @@ fn binary_name_for(os: zed::Os) -> &'static str {
     }
 }
 
-/// Constructs the relative path where the binary should be located.
-/// Path format: `{PROXY_DIR}/{version}/{binary_name}`
-/// This is relative to the extension's work directory.
 fn binary_rel_path(version: &str, os: zed::Os) -> String {
     let binary_name = binary_name_for(os);
     format!("{PROXY_DIR}/{version}/{binary_name}")
 }
 
-/// Constructs the extraction directory path for downloads.
-/// Path format: `{PROXY_DIR}/{version}`
 fn extraction_dir(version: &str) -> String {
     format!("{PROXY_DIR}/{version}")
 }
 
+fn expand_tilde(path: &str) -> String {
+    #[cfg(unix)]
+    if let Some(rest) = path.strip_prefix("~/")
+        && let Ok(home) = std::env::var("HOME")
+    {
+        return format!("{home}/{rest}");
+    }
+    path.to_string()
+}
+
+/// Validates a user-provided binary path by executing it with `--version`.
+///
+/// Checks that:
+/// 1. The binary can be executed
+/// 2. It exits successfully (code 0)
+/// 3. The output contains "bun-docs-mcp-proxy" (verifies it's our binary)
+fn validate_user_binary(path: &str) -> Result<()> {
+    let output = zed::process::Command::new(path)
+        .arg("--version")
+        .output()
+        .map_err(|e| format!("Failed to execute custom binary at {path}: {e}"))?;
+
+    match output.status {
+        Some(0) => {
+            // Verify it's actually our binary by checking the output
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if !stdout.contains("bun-docs-mcp-proxy") {
+                return Err(format!(
+                    "Binary at {path} is not bun-docs-mcp-proxy (output: {stdout})"
+                ));
+            }
+            Ok(())
+        }
+        Some(code) => Err(format!(
+            "Custom binary at {path} exited with code {code}. stderr: {}",
+            String::from_utf8_lossy(&output.stderr)
+        )),
+        None => Err(format!("Custom binary at {path} was terminated by signal")),
+    }
+}
+
 impl BunDocsMcpExtension {
-    /// Returns the GitHub release archive name for the current platform.
     fn get_platform_archive_name() -> Result<&'static str> {
         let (os, arch) = zed::current_platform();
         archive_name_for(os, arch)
     }
 
-    /// Returns the relative binary path for the current platform and pinned version.
     fn get_binary_rel_path() -> String {
         let (os, _) = zed::current_platform();
         binary_rel_path(PROXY_VERSION, os)
     }
 
-    /// Ensures the MCP server binary is available, downloading if necessary.
-    /// Returns a relative path within the extension work directory.
     fn ensure_binary(&mut self) -> Result<String> {
-        // Clean up legacy non-versioned binary once per session (from pre-0.2.0 installs)
         if !self.did_legacy_cleanup {
             self.did_legacy_cleanup = true;
             let (os, _) = zed::current_platform();
@@ -112,45 +121,39 @@ impl BunDocsMcpExtension {
                 .map(|m| m.is_file())
                 .unwrap_or(false)
             {
-                // Best-effort cleanup, ignore errors
                 let _ = fs::remove_file(&legacy_binary);
             }
         }
 
-        // Return cached path if available
+        // Re-validate cached path in case user deleted the binary while Zed was running
         if let Some(cached) = &self.cached_binary_path {
-            return Ok(cached.clone());
+            if fs::metadata(cached).is_ok_and(|m| m.is_file() && m.len() > 0) {
+                return Ok(cached.clone());
+            }
+            self.cached_binary_path = None;
         }
 
         let binary_path = Self::get_binary_rel_path();
 
-        // Check if binary already exists and is valid
-        let needs_download = match fs::metadata(&binary_path) {
+        match fs::metadata(&binary_path) {
             Ok(metadata) if metadata.is_file() && metadata.len() > 0 => {
-                // Binary exists and is valid
                 self.cached_binary_path = Some(binary_path.clone());
                 return Ok(binary_path);
             }
-            Ok(_) => {
-                // Exists but invalid (not a file or empty) - remove and re-download
-                let _ = fs::remove_file(&binary_path);
-                true
+            Ok(meta) => {
+                if meta.is_dir() {
+                    let _ = fs::remove_dir_all(&binary_path);
+                } else {
+                    let _ = fs::remove_file(&binary_path);
+                }
             }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => true,
-            Err(e) => {
-                return Err(format!("Failed to check binary at {binary_path}: {e}"));
-            }
-        };
-
-        if !needs_download {
-            unreachable!("needs_download should always be true at this point");
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+            Err(e) => return Err(format!("Failed to check binary at {binary_path}: {e}")),
         }
 
-        // Download from pinned GitHub release
         let release = zed::github_release_by_tag_name(PROXY_REPO, PROXY_VERSION)
             .map_err(|e| format!("Failed to get release {PROXY_VERSION} from {PROXY_REPO}: {e}"))?;
 
-        // Find the asset for our platform
         let archive_name = Self::get_platform_archive_name()?;
         let asset = release
             .assets
@@ -163,7 +166,6 @@ impl BunDocsMcpExtension {
                 )
             })?;
 
-        // Determine file type for extraction
         let archive_path = std::path::Path::new(archive_name);
         let file_type = if archive_path
             .extension()
@@ -177,7 +179,6 @@ impl BunDocsMcpExtension {
             zed::DownloadedFileType::Uncompressed
         };
 
-        // Download and extract to versioned directory
         let extract_dir = extraction_dir(PROXY_VERSION);
         zed::download_file(&asset.download_url, &extract_dir, file_type).map_err(|e| {
             format!(
@@ -186,11 +187,8 @@ impl BunDocsMcpExtension {
             )
         })?;
 
-        // Verify the binary was extracted correctly
         match fs::metadata(&binary_path) {
-            Ok(metadata) if metadata.is_file() && metadata.len() > 0 => {
-                // Binary extracted successfully
-            }
+            Ok(metadata) if metadata.is_file() && metadata.len() > 0 => {}
             Ok(_) => {
                 return Err(format!(
                     "Extracted binary is invalid (not a file or empty): {binary_path}"
@@ -201,7 +199,6 @@ impl BunDocsMcpExtension {
             }
         }
 
-        // Make it executable (Unix platforms only)
         #[cfg(unix)]
         zed::make_file_executable(&binary_path)
             .map_err(|e| format!("Failed to make {binary_path} executable: {e}"))?;
@@ -226,12 +223,9 @@ impl zed::Extension for BunDocsMcpExtension {
     ) -> Result<Command> {
         match context_server_id.as_ref() {
             CONTEXT_SERVER_ID => {
-                // Get Zed's context server settings - surface errors instead of swallowing
                 let settings = ContextServerSettings::for_project(CONTEXT_SERVER_ID, project)
                     .map_err(|e| format!("Failed to load context server settings: {e}"))?;
 
-                // Parse custom settings from the settings JSON blob
-                // If settings exist but are invalid, return a hard error
                 let custom_settings: Option<BunDocsMcpSettings> = if let Some(ref value) =
                     settings.settings
                 {
@@ -243,16 +237,16 @@ impl zed::Extension for BunDocsMcpExtension {
                     None
                 };
 
-                // Determine binary path: user-specified or auto-download
                 let binary_path = match custom_settings.as_ref().and_then(|s| s.path.as_ref()) {
                     Some(path) => {
-                        // Basic validation for user-provided path
-                        if path.trim().is_empty() {
+                        let expanded = expand_tilde(path);
+                        if expanded.trim().is_empty() {
                             return Err(
                                 "Custom binary path is empty - remove 'path' setting or provide a valid path".to_string()
                             );
                         }
-                        path.clone()
+                        validate_user_binary(&expanded)?;
+                        expanded
                     }
                     None => self.ensure_binary()?,
                 };
@@ -299,10 +293,11 @@ zed::register_extension!(BunDocsMcpExtension);
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(unix)]
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn test_archive_name_for() {
-        // Test all supported platforms
         assert_eq!(
             archive_name_for(zed::Os::Linux, zed::Architecture::X8664).unwrap(),
             ARCHIVE_LINUX_X64
@@ -331,7 +326,6 @@ mod tests {
 
     #[test]
     fn test_archive_name_for_unsupported() {
-        // Test unsupported platform returns error
         let result = archive_name_for(zed::Os::Linux, zed::Architecture::X86);
         assert!(result.is_err());
         assert!(result.unwrap_err().contains("Unsupported platform"));
@@ -368,7 +362,6 @@ mod tests {
 
     #[test]
     fn test_archive_extensions_valid() {
-        // All archives should have valid extensions
         let archives = [
             ARCHIVE_LINUX_X64,
             ARCHIVE_LINUX_ARM64,
@@ -385,7 +378,6 @@ mod tests {
             );
         }
 
-        // Windows uses .zip, others use .tar.gz
         assert!(ARCHIVE_WINDOWS_X64.ends_with(".zip"));
         assert!(ARCHIVE_WINDOWS_ARM64.ends_with(".zip"));
         assert!(ARCHIVE_LINUX_X64.ends_with(".tar.gz"));
@@ -412,7 +404,6 @@ mod tests {
 
     #[test]
     fn test_constants_consistency() {
-        // Verify constants are consistent
         assert_eq!(CONTEXT_SERVER_ID, "bun-docs-mcp");
         assert_eq!(PROXY_REPO, "kjanat/bun-docs-mcp-proxy");
         assert_eq!(PROXY_DIR, "bun-docs-mcp-proxy");
@@ -453,5 +444,35 @@ mod tests {
         let json = r#"{"path": 123}"#;
         let result: std::result::Result<BunDocsMcpSettings, _> = serde_json::from_str(json);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_expand_tilde() {
+        // Non-tilde paths pass through unchanged
+        assert_eq!(expand_tilde("/usr/bin/foo"), "/usr/bin/foo");
+        assert_eq!(expand_tilde("relative/path"), "relative/path");
+        assert_eq!(expand_tilde(""), "");
+
+        // Tilde without slash is not expanded (not a home dir reference)
+        assert_eq!(expand_tilde("~foo"), "~foo");
+        assert_eq!(expand_tilde("~"), "~");
+
+        // Tilde expansion only on Unix with HOME set
+        #[cfg(unix)]
+        {
+            // SAFETY: set_var/remove_var are unsafe since Rust 1.84 due to potential data
+            // races in multi-threaded contexts. We serialize access via ENV_LOCK.
+            let _guard = ENV_LOCK.lock().unwrap();
+            let original_home = std::env::var("HOME").ok();
+
+            unsafe { std::env::set_var("HOME", "/home/testuser") };
+            assert_eq!(expand_tilde("~/bin/proxy"), "/home/testuser/bin/proxy");
+            assert_eq!(expand_tilde("~/.config/app"), "/home/testuser/.config/app");
+
+            match original_home {
+                Some(h) => unsafe { std::env::set_var("HOME", h) },
+                None => unsafe { std::env::remove_var("HOME") },
+            }
+        }
     }
 }

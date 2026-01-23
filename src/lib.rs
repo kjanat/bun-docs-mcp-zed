@@ -1,5 +1,3 @@
-#![allow(clippy::multiple_crate_versions)]
-
 use schemars::JsonSchema;
 use serde::Deserialize;
 use std::fs;
@@ -232,7 +230,6 @@ impl zed::Extension for BunDocsMcpExtension {
 zed::register_extension!(BunDocsMcpExtension);
 
 #[cfg(test)]
-#[allow(clippy::case_sensitive_file_extension_comparisons)]
 mod tests {
     use super::*;
 

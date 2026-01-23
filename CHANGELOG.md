@@ -7,6 +7,47 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-23
+
+### Changed
+
+- **Pinned Proxy Version**: Proxy binary pinned to v0.3.0, removing auto-update
+  polling
+- **Rust Edition**: Bump from 2021 to 2024
+- **Settings Schema**: Add `BunDocsMcpSettings` struct with JsonSchema for Zed
+  settings UI integration
+- **Configuration**: Implement `context_server_configuration` providing
+  installation instructions and default settings
+- **Custom Binary Path**: Support custom binary path via settings
+- **Dependencies**: Remove semver, add schemars/serde
+- **Formatting**: Compact YAML workflow syntax, add schema comments to workflows
+- **CI**: Upgrade actions
+  - actions/checkout v5->v6
+  - actions/cache v4->v5
+  - actions/upload-artifact v4->v6
+  - huacnlee/zed-extension-action v1->v2 with `create-pullrequest`
+- **Dependabot**: Change schedule from weekly to monthly
+- **License**: Update copyright year to 2026
+
+### Added
+
+- `configuration/` directory with `default_settings.jsonc` and
+  `installation_instructions.md`
+- `.dprint.jsonc` and `tombi.toml` for formatting configuration
+- `clippy.toml` to allow transitive hashbrown duplicate (zed_extension_api dep)
+- `autofix.ci` workflow for auto-formatting PRs
+- `AGENTS.md` for AI agent instructions (CLAUDE.md now references it)
+- Cargo.toml metadata: repository, keywords, categories
+
+### Removed
+
+- `.pre-commit-config.yaml` (replaced by autofix.ci workflow)
+- Release profile overrides in Cargo.toml
+
+### Fixed
+
+- Trim whitespace from default settings content
+
 ## [0.1.1] - 2025-11-03
 
 ### Fixed
@@ -107,7 +148,8 @@ match (os, arch) {
 
 <!--tag-link-definitions-start-->
 
-[Unreleased]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.0.1...v0.1.0
 

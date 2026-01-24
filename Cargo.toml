@@ -1,6 +1,6 @@
 [package]
 name        = "bun-docs-mcp-zed"
-version     = "0.2.0+dev"
+version     = "1.0.0"
 edition     = "2024"
 description = "Bun Docs MCP extension for Zed"
 repository  = "https://github.com/kjanat/bun-docs-mcp-zed"

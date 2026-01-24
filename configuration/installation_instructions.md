@@ -26,9 +26,4 @@ to your Zed settings file instead.
 [v0.214.5]: https://github.com/zed-industries/zed/releases/tag/v0.214.5 "View Zed v0.214.5 release notes"
 [PR #39021]: https://github.com/zed-industries/zed/pull/39021 "View PR #39021"
 
-#### *Future*
-
-*It is unfortunately not yet (as of jan 2026) possible for extension authors to provide custom server URLs in the extension manifest.*  
-*If it will ever be possible, the extension will be updated provide access to the official remote server directly.*
-
 <!--markdownlint-disable-file-->

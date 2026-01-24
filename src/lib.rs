@@ -1,6 +1,7 @@
+use std::fs;
+
 use schemars::JsonSchema;
 use serde::Deserialize;
-use std::fs;
 use zed_extension_api::{
     self as zed, Command, ContextServerConfiguration, ContextServerId, Project, Result, serde_json,
     settings::ContextServerSettings,
@@ -9,7 +10,7 @@ use zed_extension_api::{
 const CONTEXT_SERVER_ID: &str = "bun-docs-mcp";
 const PROXY_REPO: &str = "kjanat/bun-docs-mcp-proxy";
 const PROXY_DIR: &str = "bun-docs-mcp-proxy";
-const PROXY_VERSION: &str = "v0.3.0";
+const PROXY_VERSION: &str = "v1.0.0";
 const ARCHIVE_LINUX_X64: &str = "bun-docs-mcp-proxy-linux-x86_64.tar.gz";
 const ARCHIVE_LINUX_ARM64: &str = "bun-docs-mcp-proxy-linux-aarch64.tar.gz";
 const ARCHIVE_MACOS_X64: &str = "bun-docs-mcp-proxy-macos-x86_64.tar.gz";
@@ -200,9 +201,11 @@ impl BunDocsMcpExtension {
             }
         }
 
-        #[cfg(unix)]
-        zed::make_file_executable(&binary_path)
-            .map_err(|e| format!("Failed to make {binary_path} executable: {e}"))?;
+        let (os, _) = zed::current_platform();
+        if os != zed::Os::Windows {
+            zed::make_file_executable(&binary_path)
+                .map_err(|e| format!("Failed to make {binary_path} executable: {e}"))?;
+        }
 
         self.cached_binary_path = Some(binary_path.clone());
         Ok(binary_path)

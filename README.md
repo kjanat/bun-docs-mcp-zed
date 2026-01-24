@@ -5,10 +5,10 @@
 Search Bun documentation directly in Zed using the Model Context Protocol (MCP).
 
 > [!IMPORTANT]
-> This extension will be deprecated in the future.\
 > Zed started supporting remote MCP servers since
 > https://github.com/zed-industries/zed/pull/39021, released in Zed [v0.214.5].\
-> Please use the official remote server directly:
+> If you encounter issues using this extension, please submit an issue, and use
+> the official remote server directly:
 >
 > ```jsonc
 > {
@@ -29,10 +29,6 @@ Search Bun documentation directly in Zed using the Model Context Protocol (MCP).
 
 - 🔍 **Search Bun Docs** - Query Bun documentation from Zed Assistant
 - ⚡ **Pure Rust** - Native binary with automatic download from GitHub Releases
-- 🪶 **Lightweight** - 1.3 MB compressed, 2.7 MB extracted
-- 🚀 **Fast** - 4ms startup time
-- 🌍 **Multi-Platform** - Supports Linux, macOS, Windows (x86_64/ARM64)
-- 🔄 **Auto-Update** - Downloads latest binary on installation
 
 ## Installation
 
@@ -117,16 +113,6 @@ All platforms auto-detected and supported:
 | **Windows ARM64**       | `bun-docs-mcp-proxy-windows-aarch64.zip`  | 1.04 MB |
 
 Static Linux builds (musl) also available.
-
-## Performance
-
-| Metric           | Value                            |
-| ---------------- | -------------------------------- |
-| **First Use**    | ~2-3 seconds (one-time download) |
-| **Subsequent**   | ~4ms startup (instant!)          |
-| **Binary Size**  | 2.7 MB                           |
-| **Memory**       | ~2-5 MB                          |
-| **Dependencies** | None (standalone binary)         |
 
 ## Development
 
@@ -222,12 +208,6 @@ ls -lh ~/.local/share/zed/extensions/work/bun-docs-mcp/bun-docs-mcp-proxy/
 
 ## Why Rust?
 
-This extension is implemented in pure Rust for:
-
-- **Performance**: 4ms startup time
-- **Size**: Compact 2.7 MB binary
-- **Dependencies**: Zero runtime dependencies
-- **Reliability**: Compile-time safety guarantees
 - **Boredom**: Why not...
 
 See [ARCHITECTURE.md][architecture] for migration history and technical details.

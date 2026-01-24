@@ -7,6 +7,8 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-01-24
+
 ### Added
 
 - **User Binary Validation**: Custom binary paths are now validated by running
@@ -15,15 +17,24 @@ The format is based on [Keep a Changelog], and this project adheres to
   user-provided binary paths before spawning
 - **Tilde Path Error**: Clear error message when users try `~/...` paths (WASM
   sandbox cannot access HOME environment variable)
+- **Justfile**: Added `justfile` with grouped recipes for build, test, format,
+  and lint tasks; uses `cargo +nightly fmt` for unstable rustfmt options
 
 ### Changed
 
+- **Version Alignment**: Extension version now matches proxy version (v1.0.0)
+  for simpler compatibility tracking
+- **Proxy Version**: Bump from v0.3.0 to v1.0.0
 - **Code Cleanup**: Remove dead `needs_download` variable and `unreachable!()`
   block; simplify binary existence check to early-return pattern
 - **Cached Path Revalidation**: Re-check cached binary exists before returning
   (handles user deleting binary while Zed is running)
 - **Build Config**: Added `lefthook.yml` for git hooks and `rustfmt.toml` for
   formatting configuration
+- **Documentation**: Streamlined README by removing outdated performance metrics
+  and redundant feature descriptions
+- **Installation Instructions**: Removed speculative "Future" section about
+  remote server support; clarified deprecation notice
 
 ### Fixed
 
@@ -31,7 +42,9 @@ The format is based on [Keep a Changelog], and this project adheres to
   binaries on first run (once per session)
 - **Corruption Recovery**: Invalid/empty binaries are deleted and re-downloaded
   instead of returning a hard error
-- **Unix-only chmod**: `make_file_executable` now wrapped with `#[cfg(unix)]`
+- **Unix-only chmod**: `make_file_executable` now uses runtime platform check
+  (`zed::current_platform()`) instead of compile-time `#[cfg(unix)]` which
+  doesn't work in WASM sandbox
 
 ## [0.2.0] - 2026-01-23
 
@@ -185,7 +198,8 @@ match (os, arch) {
 
 <!--tag-link-definitions-start-->
 
-[Unreleased]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.2.0...v1.0.0
 [0.2.0]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/kjanat/bun-docs-mcp-zed/compare/v0.0.1...v0.1.0

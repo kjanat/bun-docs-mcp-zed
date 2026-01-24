@@ -9,15 +9,15 @@ See [ARCHITECTURE.md] for complete technical details.
 ## Development
 
 ```sh
-# Build extension WASM
-cargo build --target wasm32-wasip2 --release
-
-# Install as dev extension in Zed
-# Cmd/Ctrl+Shift+P → "zed: install dev extension"
-
-# Run tests
-cargo test
+just        # Show available commands
+just check  # Run all checks (fmt, lint, test, build)
+just build  # Build WASM extension
+just test   # Run tests
+just fmt    # Format (nightly rustfmt + dprint)
+just lint   # Run clippy
 ```
+
+Install as dev extension: `Cmd/Ctrl+Shift+P` -> "zed: install dev extension"
 
 ## Publishing to Zed Extensions
 
@@ -53,18 +53,18 @@ cargo test
 - **Testing**: Unit tests in src/lib.rs
 - **Formatting**: cargo fmt (enforced by pre-commit)
 
-## Git Restrictions
-
-- **NEVER** create, push, modify, or delete git tags unless the user explicitly
-  requests it
-- Only push commits when explicitly asked
-
 ## Habits
 
 Update CHANGELOG.md with your modifications. If a [x.x.x] is the top of the
 CHANGELOG.md, then add a new [Unreleased] section.
 
 Before comitting, make sure to `dprint fmt`.
+
+## Git Restrictions
+
+- **NEVER** create, push, modify, or delete git tags unless the user explicitly
+  requests it
+- Only push commits when explicitly asked
 
 <!--link-definitions-->
 

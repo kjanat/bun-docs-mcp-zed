@@ -60,14 +60,15 @@ fn extraction_dir(version: &str) -> String {
     format!("{PROXY_DIR}/{version}")
 }
 
-fn expand_tilde(path: &str) -> String {
-    #[cfg(unix)]
-    if let Some(rest) = path.strip_prefix("~/")
-        && let Ok(home) = std::env::var("HOME")
-    {
-        return format!("{home}/{rest}");
+fn expand_tilde(path: &str) -> Result<String> {
+    if path.starts_with("~/") {
+        // WASM sandbox doesn't have access to HOME/USERPROFILE env vars
+        // so tilde expansion is not possible - require absolute paths
+        return Err(format!(
+            "Tilde paths (~/) are not supported in WASM sandbox. Please use an absolute path instead of: {path}"
+        ));
     }
-    path.to_string()
+    Ok(path.to_string())
 }
 
 /// Validates a user-provided binary path by executing it with `--version`.
@@ -239,7 +240,7 @@ impl zed::Extension for BunDocsMcpExtension {
 
                 let binary_path = match custom_settings.as_ref().and_then(|s| s.path.as_ref()) {
                     Some(path) => {
-                        let expanded = expand_tilde(path);
+                        let expanded = expand_tilde(path)?;
                         if expanded.trim().is_empty() {
                             return Err(
                                 "Custom binary path is empty - remove 'path' setting or provide a valid path".to_string()
@@ -293,8 +294,6 @@ zed::register_extension!(BunDocsMcpExtension);
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(unix)]
-    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
     #[test]
     fn test_archive_name_for() {
@@ -449,30 +448,17 @@ mod tests {
     #[test]
     fn test_expand_tilde() {
         // Non-tilde paths pass through unchanged
-        assert_eq!(expand_tilde("/usr/bin/foo"), "/usr/bin/foo");
-        assert_eq!(expand_tilde("relative/path"), "relative/path");
-        assert_eq!(expand_tilde(""), "");
+        assert_eq!(expand_tilde("/usr/bin/foo").unwrap(), "/usr/bin/foo");
+        assert_eq!(expand_tilde("relative/path").unwrap(), "relative/path");
+        assert_eq!(expand_tilde("").unwrap(), "");
 
-        // Tilde without slash is not expanded (not a home dir reference)
-        assert_eq!(expand_tilde("~foo"), "~foo");
-        assert_eq!(expand_tilde("~"), "~");
+        // Tilde without slash passes through (not a home dir reference)
+        assert_eq!(expand_tilde("~foo").unwrap(), "~foo");
+        assert_eq!(expand_tilde("~").unwrap(), "~");
 
-        // Tilde expansion only on Unix with HOME set
-        #[cfg(unix)]
-        {
-            // SAFETY: set_var/remove_var are unsafe since Rust 1.84 due to potential data
-            // races in multi-threaded contexts. We serialize access via ENV_LOCK.
-            let _guard = ENV_LOCK.lock().unwrap();
-            let original_home = std::env::var("HOME").ok();
-
-            unsafe { std::env::set_var("HOME", "/home/testuser") };
-            assert_eq!(expand_tilde("~/bin/proxy"), "/home/testuser/bin/proxy");
-            assert_eq!(expand_tilde("~/.config/app"), "/home/testuser/.config/app");
-
-            match original_home {
-                Some(h) => unsafe { std::env::set_var("HOME", h) },
-                None => unsafe { std::env::remove_var("HOME") },
-            }
-        }
+        // Tilde paths return error (WASM sandbox limitation)
+        let err = expand_tilde("~/bin/proxy").unwrap_err();
+        assert!(err.contains("not supported"));
+        assert!(err.contains("absolute path"));
     }
 }

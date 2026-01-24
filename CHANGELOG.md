@@ -9,12 +9,12 @@ The format is based on [Keep a Changelog], and this project adheres to
 
 ### Added
 
-- **Tilde Expansion**: User-specified paths like `~/bin/proxy` now expand `~` to
-  `$HOME` on Unix (shells do this, but process spawning does not)
 - **User Binary Validation**: Custom binary paths are now validated by running
   `--version` and checking output contains "bun-docs-mcp-proxy"
 - **Extension Capability**: `process:exec` for `--version` to validate
   user-provided binary paths before spawning
+- **Tilde Path Error**: Clear error message when users try `~/...` paths (WASM
+  sandbox cannot access HOME environment variable)
 
 ### Changed
 
@@ -22,6 +22,8 @@ The format is based on [Keep a Changelog], and this project adheres to
   block; simplify binary existence check to early-return pattern
 - **Cached Path Revalidation**: Re-check cached binary exists before returning
   (handles user deleting binary while Zed is running)
+- **Build Config**: Added `lefthook.yml` for git hooks and `rustfmt.toml` for
+  formatting configuration
 
 ### Fixed
 

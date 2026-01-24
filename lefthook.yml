@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/evilmartians/lefthook/refs/heads/master/schema.json
+# https://github.com/evilmartians/lefthook
+# Run: lefthook install
+---
+pre-commit:
+  parallel: true
+  commands:
+    dprint-fmt:
+      run: dprint fmt --staged --allow-no-files
+      stage_fixed: true
+
+    check-large-files:
+      glob: "*"
+      run: |
+        IFS=$'\n'
+        for file in {staged_files}; do
+          size=$(stat -c%s "$file" 2>/dev/null || stat -f%z "$file" 2>/dev/null)
+          if [ "$size" -gt 524288 ]; then
+            echo "File too large: $file ($size bytes)"
+            exit 1
+          fi
+        done
+
+    tombi-lint:
+      glob: "*.toml"
+      run: tombi lint {staged_files}
+
+    cargo-check:
+      glob: "*.rs"
+      run: cargo check --all-features --all-targets
+
+    actionlint:
+      glob: ".github/workflows/*.{yaml,yml}"
+      run: actionlint {staged_files}
+
+pre-push:
+  parallel: false
+  commands:
+    cargo-test:
+      glob: "*.rs"
+      run: cargo test
+
+    cargo-clippy:
+      glob: "*.rs"
+      run: cargo clippy --all-features --all-targets -- -D warnings

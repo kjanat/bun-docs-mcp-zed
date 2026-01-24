@@ -8,12 +8,15 @@
     }
   ],
   "prettier": { "allowed": false },
-  "languages": { "YAML": { "wrap_guides": [120] } },
+  "languages": { "YAML": { "wrap_guides": [120] }, "Rust": { "wrap_guides": [100] } },
+  "auto_install_extensions": {
+    "bun-docs-mcp": false
+  },
   "context_servers": {
     "bun-docs-mcp": {
       "enabled": true,
       "settings": {
-        "path": "/home/kjanat/projects/bun-docs-mcp-proxy/target/release/bun-docs-mcp-proxy"
+        "path": "/home/kjanat/projects/bun-docs-mcp-proxy/mcp-shim"
       }
     }
   }

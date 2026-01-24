@@ -1,5 +1,5 @@
 {
   // Optional: Specify a custom path to the bun-docs-mcp-proxy binary.
   // If not set, the extension will automatically download and manage the binary.
-  // "path": "/path/to/bun-docs-mcp-proxy"
+  // "path": "/home/kjanat/projects/bun-docs-mcp-proxy/target/release/bun-docs-mcp-proxy",
 }

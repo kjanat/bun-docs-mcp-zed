@@ -17,7 +17,8 @@
         "command": "rustfmt",
         "exts": ["rs"],
         "cacheKeyFiles": [
-          "rustfmt.toml", // "rust-toolchain.toml"
+          "rustfmt.toml",
+          "rust-toolchain.toml",
         ],
       },
     ],

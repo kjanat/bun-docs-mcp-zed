@@ -153,7 +153,7 @@ jobs:
         run: cargo build --target wasm32-wasip2 --release
 
       - name: Upload WASM artifact
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: bun-docs-mcp-zed.wasm
           path: target/wasm32-wasip2/release/bun-docs-mcp-proxy
